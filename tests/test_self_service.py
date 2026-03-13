@@ -1,5 +1,7 @@
 """Tests for self-service provisioning and VPN bootstrap."""
 
+import json
+import os
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -13,6 +15,7 @@ from self_service.vpn.service import (
     _validate_vpn_profile,
     _wait_for_tunnel,
     apply_self_service_bundle,
+    ensure_persisted_vpn,
     fetch_self_service_bundle,
     kill_openvpn_daemon,
     self_service_settings,
@@ -77,6 +80,8 @@ class TestFetchSelfServiceBundle:
         assert bundle["qpu_id"] == "cq-node-test"
         request_body = client.post.call_args.kwargs["json"]
         assert "qpu_id" not in request_body
+        assert request_body["opx_host"] == "localhost"
+        assert request_body["opx_port"] == 80
 
 
 class TestApplySelfServiceBundle:
@@ -203,3 +208,72 @@ class TestSelfServiceSettings:
             with pytest.raises(SelfServiceError, match="bad bundle"):
                 await self_service_settings(settings)
             mock_kill.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_persists_runtime_config_after_success(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        settings = Settings()
+        settings.self_service_token = "tok"
+        settings.self_service_auto_vpn = False
+        bundle = _sample_bundle()
+        vpn = cast(dict[str, Any], bundle["vpn"])
+        vpn["required"] = False
+
+        config_path = tmp_path / "coda.config"
+        key_path = tmp_path / "coda-private-key"
+        monkeypatch.setattr(
+            "self_service.vpn.service.PERSISTED_CONFIG_PATH", config_path
+        )
+        monkeypatch.setattr(
+            "self_service.vpn.service.PERSISTED_PRIVATE_KEY_PATH", key_path
+        )
+
+        with patch(
+            "self_service.vpn.service.fetch_self_service_bundle",
+            new_callable=AsyncMock,
+            return_value=bundle,
+        ):
+            await self_service_settings(settings)
+
+        assert key_path.read_text() == bundle["jwt_private_key"]
+        persisted = json.loads(config_path.read_text())
+        assert persisted["qpu_id"] == "cq-node-test"
+        assert persisted["jwt_private_key_path"] == str(key_path)
+        if os.name != "nt":
+            assert config_path.stat().st_mode & 0o777 == 0o600
+            assert key_path.stat().st_mode & 0o777 == 0o600
+
+
+class TestReconnectWorkflow:
+    @pytest.mark.asyncio
+    async def test_ensure_persisted_vpn_starts_openvpn_when_profile_exists(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        config_path = tmp_path / "coda.config"
+        config_path.write_text("{}\n")
+        profile_path = tmp_path / "coda-self-service.ovpn"
+        profile_path.write_text("client\nremote vpn.example.com 443\n")
+
+        monkeypatch.setattr(
+            "self_service.vpn.service.PERSISTED_CONFIG_PATH", config_path
+        )
+
+        settings = Settings()
+        settings.self_service_token = ""
+        settings.self_service_auto_vpn = True
+        settings.vpn_required = True
+        settings.self_service_vpn_profile_path = str(profile_path)
+        settings.vpn_interface_hint = "utun5"
+
+        with (
+            patch("self_service.vpn.guard._detect_tun_interface", return_value=None),
+            patch("self_service.vpn.service._start_openvpn") as mock_start,
+            patch(
+                "self_service.vpn.service._wait_for_tunnel", new_callable=AsyncMock
+            ) as mock_wait,
+        ):
+            await ensure_persisted_vpn(settings)
+
+        mock_start.assert_called_once_with(str(profile_path))
+        mock_wait.assert_awaited_once_with(hint="utun5")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import shutil
@@ -18,6 +19,8 @@ import httpx
 
 if TYPE_CHECKING:
     from self_service.server.config import Settings
+
+from self_service.server.config import PERSISTED_CONFIG_PATH, PERSISTED_PRIVATE_KEY_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +71,42 @@ def _write_vpn_profile(path: str, profile: str) -> None:
     _validate_vpn_profile(profile)
     profile_path = Path(path)
     profile_path.parent.mkdir(parents=True, exist_ok=True)
-    profile_path.write_text(profile)
+    _write_secure_text(profile_path, profile)
+
+
+def _write_secure_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
     if os.name != "nt":
-        os.chmod(profile_path, 0o600)
+        os.chmod(path, 0o600)
+
+
+def _persist_runtime_config(settings: Settings) -> None:
+    _write_secure_text(PERSISTED_PRIVATE_KEY_PATH, settings.jwt_private_key)
+
+    persisted = {
+        "qpu_id": settings.qpu_id,
+        "qpu_display_name": settings.qpu_display_name,
+        "native_gate_set": settings.native_gate_set,
+        "num_qubits": settings.num_qubits,
+        "jwt_key_id": settings.jwt_key_id,
+        "jwt_private_key_path": str(PERSISTED_PRIVATE_KEY_PATH),
+        "redis_url": settings.redis_url,
+        "webapp_url": settings.webapp_url,
+        "register_path": settings.register_path,
+        "heartbeat_path": settings.heartbeat_path,
+        "webhook_path": settings.webhook_path,
+        "vpn_required": settings.vpn_required,
+        "vpn_check_interval_sec": settings.vpn_check_interval_sec,
+        "vpn_interface_hint": settings.vpn_interface_hint,
+        "vpn_probe_targets": settings.vpn_probe_targets,
+        "self_service_auto_vpn": settings.self_service_auto_vpn,
+        "self_service_vpn_profile_path": settings.self_service_vpn_profile_path,
+        "advertised_provider": settings.advertised_provider,
+        "opx_host": settings.opx_host,
+        "opx_port": settings.opx_port,
+    }
+    _write_secure_text(PERSISTED_CONFIG_PATH, json.dumps(persisted, indent=2) + "\n")
 
 
 def _openvpn_binary() -> str | None:
@@ -208,6 +244,7 @@ async def fetch_self_service_bundle(settings: Settings) -> dict[str, Any]:
         "machine_fingerprint": settings.self_service_machine_fingerprint
         or _machine_fingerprint(),
         "opx_host": settings.opx_host,
+        "opx_port": settings.opx_port,
     }
     headers = {"Authorization": f"Bearer {settings.self_service_token}"}
     url = f"{settings.webapp_url}{settings.self_service_path}"
@@ -289,6 +326,32 @@ async def self_service_settings(settings: Settings) -> None:
     bundle = await fetch_self_service_bundle(settings)
     try:
         await apply_self_service_bundle(settings, bundle)
+        await asyncio.to_thread(_persist_runtime_config, settings)
     except Exception:
         kill_openvpn_daemon()
         raise
+
+
+async def ensure_persisted_vpn(settings: Settings) -> None:
+    if not PERSISTED_CONFIG_PATH.exists():
+        return
+
+    if not settings.self_service_auto_vpn:
+        return
+
+    profile_path = Path(settings.self_service_vpn_profile_path)
+    if not profile_path.exists():
+        if settings.vpn_required:
+            raise SelfServiceError(
+                "Persisted VPN profile not found. Re-run self-service bootstrap with a new token."
+            )
+        return
+
+    from self_service.vpn.guard import _detect_tun_interface
+
+    iface = await asyncio.to_thread(_detect_tun_interface, settings.vpn_interface_hint)
+    if iface is not None:
+        return
+
+    await asyncio.to_thread(_start_openvpn, settings.self_service_vpn_profile_path)
+    await _wait_for_tunnel(hint=settings.vpn_interface_hint)

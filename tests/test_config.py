@@ -1,7 +1,11 @@
 """Tests for environment-backed settings."""
 
+import json
+import os
+
 import pytest
 
+from self_service.server import config as config_module
 from self_service.server.config import Settings
 
 
@@ -14,6 +18,16 @@ def jwt_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CODA_JWT_KEY_ID", "test-key-id")
 
 
+@pytest.fixture(autouse=True)
+def isolate_persisted_runtime_paths(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setattr(
+        config_module, "PERSISTED_CONFIG_PATH", tmp_path / "coda.config"
+    )
+    monkeypatch.setattr(
+        config_module, "PERSISTED_PRIVATE_KEY_PATH", tmp_path / "coda-private-key"
+    )
+
+
 class TestSettings:
     def test_defaults(self) -> None:
         settings = Settings()
@@ -22,20 +36,21 @@ class TestSettings:
         assert settings.port == 8080
         assert settings.self_service_token == ""
         assert settings.self_service_auto_vpn is True
+        assert settings.advertised_provider == "coda"
+        assert settings.opx_host == "localhost"
+        assert settings.opx_port == 80
 
     def test_callback_urls(self) -> None:
         settings = Settings()
         assert (
-            settings.callback_url
-            == "https://coda.conductorquantum.com/api/internal/qpu/webhook"
+            settings.callback_url == f"{settings.webapp_url}/api/internal/qpu/webhook"
         )
         assert (
-            settings.register_url
-            == "https://coda.conductorquantum.com/api/internal/qpu/register"
+            settings.register_url == f"{settings.webapp_url}/api/internal/qpu/register"
         )
         assert (
             settings.heartbeat_url
-            == "https://coda.conductorquantum.com/api/internal/qpu/heartbeat"
+            == f"{settings.webapp_url}/api/internal/qpu/heartbeat"
         )
 
     def test_custom_values(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,3 +83,56 @@ class TestSettings:
         monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "self-service-token")
         settings = Settings()
         assert settings.self_service_token == "self-service-token"
+
+    def test_loads_persisted_runtime_config(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
+    ) -> None:
+        config_path = tmp_path / "coda.config"
+        key_path = tmp_path / "coda-private-key"
+        key_path.write_text(
+            "-----BEGIN PRIVATE KEY-----\npersisted\n-----END PRIVATE KEY-----\n"
+        )
+        if os.name != "nt":
+            key_path.chmod(0o600)
+        config_path.write_text(
+            json.dumps(
+                {
+                    "qpu_id": "persisted-node",
+                    "qpu_display_name": "Persisted Node",
+                    "native_gate_set": "superconducting_cz",
+                    "num_qubits": 9,
+                    "jwt_key_id": "persisted-key-id",
+                    "jwt_private_key_path": str(key_path),
+                    "redis_url": "rediss://default:token@persisted:6379",
+                    "webapp_url": "https://persisted.example.test",
+                    "register_path": "/api/internal/qpu/register",
+                    "heartbeat_path": "/api/internal/qpu/heartbeat",
+                    "webhook_path": "/api/internal/qpu/webhook",
+                    "vpn_required": True,
+                    "vpn_check_interval_sec": 15,
+                    "vpn_probe_targets": [
+                        "https://persisted.example.test/api/internal/qpu/health"
+                    ],
+                }
+            )
+            + "\n"
+        )
+        if os.name != "nt":
+            config_path.chmod(0o600)
+
+        monkeypatch.setattr(config_module, "PERSISTED_CONFIG_PATH", config_path)
+        monkeypatch.setattr(config_module, "PERSISTED_PRIVATE_KEY_PATH", key_path)
+        monkeypatch.setenv("CODA_JWT_PRIVATE_KEY", "")
+        monkeypatch.setenv("CODA_JWT_KEY_ID", "")
+        monkeypatch.delenv("CODA_SELF_SERVICE_TOKEN", raising=False)
+
+        settings = Settings()
+
+        assert settings.qpu_id == "persisted-node"
+        assert settings.qpu_display_name == "Persisted Node"
+        assert settings.jwt_key_id == "persisted-key-id"
+        assert settings.jwt_private_key.startswith("-----BEGIN PRIVATE KEY-----")
+        assert settings.redis_url == "rediss://default:token@persisted:6379"
+        assert settings.vpn_probe_targets == [
+            "https://persisted.example.test/api/internal/qpu/health"
+        ]

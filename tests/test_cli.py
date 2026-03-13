@@ -31,6 +31,7 @@ def test_build_parser_supports_explicit_start_short_flags() -> None:
 
 def test_main_runs_server_with_start_subcommand(
     monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setattr(
         cli, "Settings", MagicMock(return_value=MagicMock(host="0.0.0.0", port=8080))
@@ -42,11 +43,15 @@ def test_main_runs_server_with_start_subcommand(
     monkeypatch.setattr("sys.argv", ["coda", "start", "--token", "token-value"])
 
     cli.main()
+    output = capsys.readouterr().out
 
     assert fake_env["CODA_SELF_SERVICE_TOKEN"] == "token-value"
+    assert "C O D A  ·  N O D E" in output
+    assert "MODE" in output
     mock_run.assert_called_once_with(
         "self_service.server.app:app",
         host="0.0.0.0",
         port=8080,
         reload=False,
+        log_level="warning",
     )

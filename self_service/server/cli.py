@@ -17,6 +17,8 @@ from self_service.vpn import (
     kill_openvpn_daemon,
 )
 
+_BANNER_WIDTH = 48
+
 
 def _configure_logging() -> None:
     logging.basicConfig(
@@ -56,19 +58,45 @@ def _apply_overrides(args: argparse.Namespace) -> None:
         os.environ["CODA_SELF_SERVICE_TOKEN"] = self_service_token
 
 
+def _print_banner(title: str, rows: list[tuple[str, str]]) -> None:
+    print()
+    print(f"  ┌{'─' * (_BANNER_WIDTH - 2)}┐")
+    print(f"  │{title:^{_BANNER_WIDTH - 2}}│")
+    print(f"  └{'─' * (_BANNER_WIDTH - 2)}┘")
+    print()
+    for label, value in rows:
+        print(f"  {label:<14}{value}")
+    print()
+    print(f"  {'─' * _BANNER_WIDTH}")
+    print()
+
+
+def _print_status(label: str, value: str) -> None:
+    print(f"  {'→':<2} {label:<14}{value}")
+
+
+def _start_mode(token: str) -> str:
+    return "token" if token else "env"
+
+
 def _doctor() -> int:
     settings = Settings()
     openvpn_bin = shutil.which("openvpn") or shutil.which("openvpn.exe")
     iface = _detect_tun_interface(settings.vpn_interface_hint)
     pid_exists = Path(OPENVPN_PID_PATH).exists()
 
-    print(f"webapp url:       {settings.webapp_url}")
-    print(f"register url:     {settings.register_url}")
-    print(f"redis url:        {settings.redis_url}")
-    print(f"executor factory: {settings.executor_factory or 'NoopExecutor'}")
-    print(f"openvpn binary:   {openvpn_bin or 'not found'}")
-    print(f"vpn interface:    {iface or 'not detected'}")
-    print(f"vpn pid file:     {'present' if pid_exists else 'absent'}")
+    _print_banner(
+        "C O D A  ·  D O C T O R",
+        [
+            ("WEBAPP", settings.webapp_url),
+            ("REGISTER", settings.register_url),
+            ("REDIS", settings.redis_url or "not set"),
+        ],
+    )
+    _print_status("EXECUTOR", settings.executor_factory or "NoopExecutor")
+    _print_status("OPENVPN", openvpn_bin or "not found")
+    _print_status("VPN IFACE", iface or "not detected")
+    _print_status("VPN PID", "present" if pid_exists else "absent")
     return 0
 
 
@@ -80,11 +108,20 @@ def main() -> None:
     if args.command == "start":
         _apply_overrides(args)
         settings = Settings()
+        _print_banner(
+            "C O D A  ·  N O D E",
+            [
+                ("WEBAPP", settings.webapp_url),
+                ("ENDPOINT", f"{settings.host}:{settings.port}"),
+                ("MODE", _start_mode(settings.self_service_token)),
+            ],
+        )
         uvicorn.run(
             "self_service.server.app:app",
             host=settings.host,
             port=settings.port,
             reload=False,
+            log_level="warning",
         )
         return
 
@@ -92,4 +129,11 @@ def main() -> None:
         raise SystemExit(_doctor())
 
     if args.command == "stop-vpn":
-        raise SystemExit(0 if kill_openvpn_daemon() else 1)
+        killed = kill_openvpn_daemon()
+        print("Stopping Coda VPN service...")
+        print(
+            "  ✓ Stopped managed OpenVPN daemon"
+            if killed
+            else "  No managed VPN process found"
+        )
+        raise SystemExit(0 if killed else 1)

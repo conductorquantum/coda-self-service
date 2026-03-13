@@ -19,6 +19,7 @@ from self_service.server.webhook import WebhookClient
 from self_service.vpn import (
     ServiceState,
     VPNGuard,
+    ensure_persisted_vpn,
     kill_openvpn_daemon,
     self_service_settings,
 )
@@ -65,6 +66,8 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
 
         if settings.self_service_token:
             await self_service_settings(settings)
+        else:
+            await ensure_persisted_vpn(settings)
 
         guard = VPNGuard(
             probe_targets=settings.vpn_probe_urls,
