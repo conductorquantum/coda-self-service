@@ -32,7 +32,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Mypy
-        run: uv run mypy self_service
+        run: uv run mypy src/self_service
 
       - name: Pytest
         run: uv run pytest --cov --cov-report=term-missing
