@@ -159,15 +159,30 @@ class Settings(BaseSettings):
     opx_host: str = "localhost"
     opx_port: int = 80
 
+    @model_validator(mode="before")
+    @classmethod
+    def merge_persisted_runtime_config(cls, data: Any) -> Any:
+        """Apply persisted runtime config before field validation.
+
+        This preserves the intended precedence order without mutating the model
+        during validation, which would otherwise re-enter assignment validation.
+        """
+        if not isinstance(data, dict):
+            return data
+        if data.get("self_service_token"):
+            return data
+
+        merged = dict(data)
+        persisted = load_persisted_runtime_config()
+        for key, value in persisted.items():
+            current = merged.get(key)
+            if key not in merged or current in ("", None, []):
+                merged[key] = value
+        return merged
+
     @model_validator(mode="after")
     def check_jwt_or_self_service(self) -> Settings:
         """Require JWT credentials unless self-service will supply them."""
-        if not self.self_service_token:
-            persisted = load_persisted_runtime_config()
-            for key, value in persisted.items():
-                current = getattr(self, key)
-                if key not in self.model_fields_set or current in ("", None, []):
-                    setattr(self, key, value)
 
         if not self.self_service_token:
             if not self.jwt_private_key:
