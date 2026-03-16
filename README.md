@@ -131,10 +131,29 @@ To wipe persisted state, run `coda reset`.
 ## CLI
 
 ```
-coda start [--token TOKEN] [--host HOST] [--port PORT]
+coda start [--token TOKEN] [--host HOST] [--port PORT] [--daemon]
 ```
 
-Start the node server.  Pass `--token` on first run for self-service provisioning.
+Start the node server.  Pass `--token` on first run for self-service
+provisioning.  Use `--daemon` (or `-d`) to run as a background process.
+
+```
+coda stop
+```
+
+Stop the background daemon process.
+
+```
+coda status
+```
+
+Show daemon status (running/stopped, PID, log file, VPN interface).
+
+```
+coda logs [-n LINES]
+```
+
+Show recent daemon log output (default: last 50 lines).
 
 ```
 coda doctor
@@ -153,7 +172,7 @@ Stop the managed OpenVPN daemon without clearing credentials.
 coda reset
 ```
 
-Stop the VPN daemon and remove all persisted runtime files.
+Stop the daemon and VPN, then remove all persisted runtime files.
 
 ## Custom Executor
 

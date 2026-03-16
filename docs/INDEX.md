@@ -67,6 +67,7 @@ src/self_service/
 │   ├── cli.py           # CLI entry point (coda command)
 │   ├── config.py        # Settings, persisted config, env vars
 │   ├── consumer.py      # Redis Streams consumer
+│   ├── daemon.py        # Background daemon management (start/stop/status)
 │   ├── executor.py      # JobExecutor protocol, NoopExecutor
 │   ├── ir.py            # NativeGateIR schema and validation
 │   └── webhook.py       # Authenticated webhook delivery
