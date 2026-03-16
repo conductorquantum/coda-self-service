@@ -73,6 +73,7 @@ _TUNNEL_TIMEOUT = 30.0
 
 
 def _machine_fingerprint() -> str:
+    """Generate a stable machine identifier from hostname and MAC address."""
     return f"{socket.gethostname()}-{uuid.getnode()}"
 
 
@@ -95,6 +96,7 @@ _DANGEROUS_OVPN_DIRECTIVES = frozenset(
 
 
 def _validate_vpn_profile(profile: str) -> None:
+    """Reject OpenVPN profiles containing dangerous shell-execution directives."""
     for lineno, line in enumerate(profile.splitlines(), 1):
         directive = line.strip().split()[0].lower() if line.strip() else ""
         if directive in _DANGEROUS_OVPN_DIRECTIVES:
@@ -104,6 +106,7 @@ def _validate_vpn_profile(profile: str) -> None:
 
 
 def _write_vpn_profile(path: str, profile: str) -> None:
+    """Validate and write an OpenVPN profile to *path* with secure permissions."""
     _validate_vpn_profile(profile)
     profile_path = Path(path)
     profile_path.parent.mkdir(parents=True, exist_ok=True)
@@ -111,6 +114,7 @@ def _write_vpn_profile(path: str, profile: str) -> None:
 
 
 def _write_secure_text(path: Path, content: str) -> None:
+    """Write *content* to *path* and restrict permissions to ``0600`` on POSIX."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
     if os.name != "nt":
@@ -118,6 +122,7 @@ def _write_secure_text(path: Path, content: str) -> None:
 
 
 def _persist_runtime_config(settings: Settings) -> None:
+    """Write the private key and runtime config to disk for future reconnects."""
     _write_secure_text(PERSISTED_PRIVATE_KEY_PATH, settings.jwt_private_key)
 
     persisted = {
@@ -148,10 +153,12 @@ def _persist_runtime_config(settings: Settings) -> None:
 
 
 def _openvpn_binary() -> str | None:
+    """Locate the ``openvpn`` binary on ``$PATH``."""
     return shutil.which("openvpn") or shutil.which("openvpn.exe")
 
 
 def _start_openvpn(profile_path: str) -> None:
+    """Launch an OpenVPN daemon in the background using *profile_path*."""
     openvpn_bin = _openvpn_binary()
     if openvpn_bin is None:
         raise SelfServiceError(
@@ -205,6 +212,7 @@ def _start_openvpn(profile_path: str) -> None:
 
 
 def _read_openvpn_log_tail(max_lines: int = 20) -> str:
+    """Return the last *max_lines* of the OpenVPN log, or empty string on error."""
     try:
         lines = OPENVPN_LOG_PATH.read_text().splitlines()
     except OSError:
@@ -249,6 +257,7 @@ async def _wait_for_tunnel(
     timeout: float = _TUNNEL_TIMEOUT,
     poll_interval: float = _TUNNEL_POLL_INTERVAL,
 ) -> str:
+    """Poll until a VPN tunnel interface appears or *timeout* expires."""
     from self_service.vpn.guard import detect_tun_interface
 
     deadline = time.monotonic() + timeout
@@ -268,6 +277,7 @@ async def _wait_for_tunnel(
 
 
 def _as_str(data: dict[str, Any], key: str) -> str:
+    """Extract a required non-empty string from *data* or raise."""
     value = data.get(key)
     if not isinstance(value, str) or not value:
         raise SelfServiceError(f"Self-service response missing valid '{key}'")
@@ -275,6 +285,7 @@ def _as_str(data: dict[str, Any], key: str) -> str:
 
 
 def _as_int(data: dict[str, Any], key: str, default: int) -> int:
+    """Extract an integer from *data*, falling back to *default*."""
     value = data.get(key, default)
     if isinstance(value, int):
         return value
@@ -282,6 +293,7 @@ def _as_int(data: dict[str, Any], key: str, default: int) -> int:
 
 
 def _resolve_machine_fingerprint(settings: Settings) -> str:
+    """Return the machine fingerprint, generating and storing one if absent."""
     fingerprint = settings.self_service_machine_fingerprint or _machine_fingerprint()
     settings.self_service_machine_fingerprint = fingerprint
     return fingerprint
@@ -294,6 +306,25 @@ async def _post_connect(
     payload: dict[str, Any],
     max_retries: int = 3,
 ) -> dict[str, Any]:
+    """POST to the connect endpoint with exponential-backoff retry.
+
+    Retries on 5xx and transport errors up to *max_retries* times.
+    Client errors (4xx) are raised immediately as
+    :class:`SelfServiceError`.
+
+    Args:
+        settings: Runtime settings (used for ``connect_url`` and timeout).
+        auth_header: ``Authorization`` header value (bearer token or JWT).
+        payload: JSON body to send.
+        max_retries: Maximum number of attempts before giving up.
+
+    Returns:
+        The parsed JSON response body.
+
+    Raises:
+        SelfServiceError: On non-retryable client errors or after all
+            retry attempts are exhausted.
+    """
     last_exc: Exception | None = None
     for attempt in range(1, max_retries + 1):
         try:

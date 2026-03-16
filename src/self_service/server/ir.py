@@ -79,6 +79,7 @@ class GateOp(BaseModel):
 
     @model_validator(mode="after")
     def validate_gate_shape(self) -> GateOp:
+        """Ensure qubit and parameter counts match the gate specification."""
         gate = self.gate.value
         if gate in GATE_SPECS:
             expected_qubits = GATE_SPECS[gate]["qubits"]
@@ -122,6 +123,7 @@ class NativeGateIR(BaseModel):
     @field_validator("target")
     @classmethod
     def validate_target(cls, value: str) -> str:
+        """Reject targets not present in :data:`LEGAL_GATES`."""
         if value not in LEGAL_GATES:
             raise ValueError(
                 f"Unknown target '{value}'. Valid: {list(LEGAL_GATES.keys())}"
@@ -130,6 +132,7 @@ class NativeGateIR(BaseModel):
 
     @model_validator(mode="after")
     def validate_consistency(self) -> NativeGateIR:
+        """Validate gate legality and qubit indices against the target."""
         legal = LEGAL_GATES[self.target]
         for index, op in enumerate(self.gates):
             if op.gate.value not in legal:

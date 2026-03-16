@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _on_vpn_state_change(state: ServiceState) -> None:
+    """Log VPN state transitions at WARNING level."""
     logger.warning("VPN state changed: %s", state.value)
 
 
@@ -119,9 +120,11 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
 
     @app.get("/health")
     async def health() -> dict[str, str]:
+        """Liveness probe — returns 200 if the process is running."""
         return {"status": "ok"}
 
     async def _check_readiness() -> dict[str, object]:
+        """Gather composite readiness state from VPN guard and Redis consumer."""
         guard: VPNGuard = app.state.guard
         consumer: RedisConsumer = app.state.consumer
         vpn_ok = guard.is_ready
@@ -135,6 +138,7 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
 
     @app.get("/ready")
     async def ready() -> JSONResponse:
+        """Readiness probe — returns 200 when healthy, 503 otherwise."""
         try:
             result = await asyncio.wait_for(_check_readiness(), timeout=5.0)
             status_code = 200 if result["ready"] else 503

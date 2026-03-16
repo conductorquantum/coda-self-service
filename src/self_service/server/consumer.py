@@ -46,6 +46,7 @@ _BACKOFF_MAX = 60.0
 
 
 async def _await_if_needed(value: T | Awaitable[T]) -> T:
+    """Await *value* if it is awaitable, otherwise return it directly."""
     if inspect.isawaitable(value):
         return await cast(Awaitable[T], value)
     return value
@@ -234,6 +235,14 @@ class RedisConsumer:
             return False
 
     async def _process_message(self, message_id: str, fields: dict[str, str]) -> None:
+        """Deserialize, execute, and report a single job from the stream.
+
+        Skips jobs already marked as completed.  On success, sends a
+        result webhook; on failure, sends an error webhook.  The message
+        is always acknowledged so it does not re-enter the pending list.
+        Redis connection errors during status updates are logged but do
+        not prevent webhook delivery.
+        """
         job_id = fields["job_id"]
         callback_url = fields["callback_url"]
 

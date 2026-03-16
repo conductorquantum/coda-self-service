@@ -43,6 +43,7 @@ _BANNER_WIDTH = 48
 
 
 def _configure_logging() -> None:
+    """Set up root logger with a human-readable format at INFO level."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -50,6 +51,7 @@ def _configure_logging() -> None:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """Build the ``coda`` CLI argument parser with all subcommands."""
     start_parent = argparse.ArgumentParser(add_help=False)
     start_parent.add_argument("-H", "--host")
     start_parent.add_argument("-p", "--port", type=int)
@@ -76,6 +78,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _apply_overrides(args: argparse.Namespace) -> None:
+    """Push CLI flags into environment variables before Settings loads."""
     host = getattr(args, "host", None)
     port = getattr(args, "port", None)
     self_service_token = getattr(args, "self_service_token", None)
@@ -89,6 +92,7 @@ def _apply_overrides(args: argparse.Namespace) -> None:
 
 
 def _print_banner(title: str, rows: list[tuple[str, str]]) -> None:
+    """Print a bordered banner with a title and key-value rows."""
     print()
     print(f"  ┌{'─' * (_BANNER_WIDTH - 2)}┐")
     print(f"  │{title:^{_BANNER_WIDTH - 2}}│")
@@ -102,14 +106,17 @@ def _print_banner(title: str, rows: list[tuple[str, str]]) -> None:
 
 
 def _print_status(label: str, value: str) -> None:
+    """Print a single diagnostic status row."""
     print(f"  {'→':<2} {label:<14}{value}")
 
 
 def _start_mode(token: str) -> str:
+    """Return the display name for the bootstrap mode."""
     return "token" if token else "env"
 
 
 def _read_reset_paths() -> list[Path]:
+    """Collect all file paths that should be removed during a reset."""
     paths = {
         PERSISTED_CONFIG_PATH,
         PERSISTED_PRIVATE_KEY_PATH,
@@ -131,6 +138,7 @@ def _read_reset_paths() -> list[Path]:
 
 
 def _reset() -> int:
+    """Stop the VPN daemon and remove all persisted runtime files."""
     killed = kill_openvpn_daemon()
     print("Resetting persisted Coda runtime state...")
     print(
@@ -154,6 +162,7 @@ def _reset() -> int:
 
 
 def _doctor() -> int:
+    """Print diagnostic information about the runtime environment."""
     settings = Settings()
     openvpn_bin = shutil.which("openvpn") or shutil.which("openvpn.exe")
     iface = detect_tun_interface(settings.vpn_interface_hint)

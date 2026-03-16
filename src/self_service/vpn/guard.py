@@ -71,6 +71,7 @@ class VPNStatus:
 
 
 def _parse_darwin_tun_interfaces(ifconfig_output: str) -> str | None:
+    """Extract the first active utun/tun interface from ``ifconfig`` output."""
     current_iface: str | None = None
     for line in ifconfig_output.splitlines():
         if line and not line[0].isspace():
@@ -87,6 +88,7 @@ def _parse_darwin_tun_interfaces(ifconfig_output: str) -> str | None:
 def _parse_windows_tun_interfaces(
     adapter_json: str, hint: str | None = None
 ) -> str | None:
+    """Find a TAP/WinTUN adapter from ``Get-NetAdapter`` JSON output."""
     try:
         raw_adapters = json.loads(adapter_json)
     except json.JSONDecodeError:
@@ -232,6 +234,7 @@ def detect_tun_interface(hint: str | None = None) -> str | None:
 
 
 async def _probe_target(url: str, timeout: float = 5.0) -> ProbeResult:
+    """Send an HTTP HEAD to *url* and return a :class:`ProbeResult`."""
     started = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=timeout, verify=True) as client:
@@ -253,6 +256,7 @@ async def _probe_target(url: str, timeout: float = 5.0) -> ProbeResult:
 
 
 def _resolve_host(hostname: str) -> bool:
+    """Return ``True`` if *hostname* resolves to at least one address."""
     try:
         socket.getaddrinfo(hostname, 443, socket.AF_UNSPEC, socket.SOCK_STREAM)
         return True
@@ -293,10 +297,12 @@ class VPNGuard:
 
     @property
     def state(self) -> ServiceState:
+        """Current service state of the VPN guard."""
         return self._state
 
     @property
     def is_ready(self) -> bool:
+        """``True`` when the VPN guard considers the node fully healthy."""
         return self._state == ServiceState.READY
 
     async def preflight(self) -> VPNStatus:
@@ -380,6 +386,7 @@ class VPNGuard:
                     await on_change(ServiceState.DEGRADED)
 
     def stop(self) -> None:
+        """Signal the watch loop to exit after the current iteration."""
         self._running = False
 
 

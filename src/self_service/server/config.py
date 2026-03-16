@@ -40,6 +40,7 @@ PERSISTED_PRIVATE_KEY_PATH = _RUNTIME_DIR / "coda-private-key"
 
 
 def _read_secure_text(path: Path) -> str:
+    """Read a file after verifying it has ``0600`` permissions on POSIX."""
     if not path.exists():
         return ""
     if os.name != "nt":
@@ -62,7 +63,7 @@ def load_persisted_runtime_config() -> dict[str, Any]:
         persisted config exists.
 
     Raises:
-        ValueError: If the config file exists but has wrong permissions
+        ConfigError: If the config file exists but has wrong permissions
             or does not contain a JSON object.
     """
     if not PERSISTED_CONFIG_PATH.exists():
@@ -211,22 +212,27 @@ class Settings(BaseSettings):
 
     @property
     def callback_url(self) -> str:
+        """Full URL for webhook delivery."""
         return f"{self.webapp_url}{self.webhook_path}"
 
     @property
     def register_url(self) -> str:
+        """Full URL for QPU registration."""
         return f"{self.webapp_url}{self.register_path}"
 
     @property
     def connect_url(self) -> str:
+        """Full URL for the self-service connect endpoint."""
         return f"{self.webapp_url}{self.connect_path}"
 
     @property
     def heartbeat_url(self) -> str:
+        """Full URL for heartbeat reporting."""
         return f"{self.webapp_url}{self.heartbeat_path}"
 
     @property
     def vpn_probe_urls(self) -> list[str]:
+        """URLs to probe for VPN connectivity, falling back to API endpoints."""
         if self.vpn_probe_targets:
             return list(self.vpn_probe_targets)
         return [self.connect_url, self.heartbeat_url]

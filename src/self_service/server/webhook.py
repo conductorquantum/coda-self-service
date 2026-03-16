@@ -46,6 +46,7 @@ class WebhookPayload:
     error: str | None = None
 
     def to_dict(self) -> dict[str, WebhookPayloadValue]:
+        """Serialize to a dict, omitting ``None``-valued optional fields."""
         result: dict[str, WebhookPayloadValue] = {
             "job_id": self.job_id,
             "status": self.status,
@@ -92,6 +93,7 @@ class WebhookClient:
     async def _post_with_retry(
         self, url: str, body: dict[str, WebhookPayloadValue]
     ) -> None:
+        """POST *body* to *url* with JWT auth, retrying on 5xx and transport errors."""
         last_exc: Exception | None = None
         for attempt in range(1, self._max_retries + 1):
             token = sign_token(

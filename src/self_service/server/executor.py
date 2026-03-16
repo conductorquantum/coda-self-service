@@ -72,6 +72,7 @@ class NoopExecutor:
     """Deterministic executor used for scaffolding and integration smoke tests."""
 
     async def run(self, ir: NativeGateIR, shots: int) -> ExecutionResult:
+        """Return an all-zeros result for every circuit."""
         bitstring = "0" * len(ir.measurements)
         return ExecutionResult(
             counts={bitstring: shots},
@@ -81,6 +82,7 @@ class NoopExecutor:
 
 
 def _load_attr(import_path: str) -> Any:
+    """Import and return the attribute at *import_path* (``module:attr`` format)."""
     module_name, sep, attr_name = import_path.partition(":")
     if not sep or not module_name or not attr_name:
         raise ExecutorError(
@@ -108,9 +110,9 @@ def load_executor(settings: Settings) -> JobExecutor:
         An object satisfying the :class:`JobExecutor` protocol.
 
     Raises:
-        ValueError: If the import path format is invalid.
-        TypeError: If the target is not callable or does not produce a
-            runner with a ``run`` method.
+        ExecutorError: If the import path format is invalid, the target
+            is not callable, or it does not produce a runner with a
+            ``run`` method.
     """
     if not settings.executor_factory:
         logger.warning("CODA_EXECUTOR_FACTORY unset; using NoopExecutor")
