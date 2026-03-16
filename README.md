@@ -1,6 +1,7 @@
 # coda-self-service
 
-Production-ready runtime for connecting a machine to Coda.
+Production-ready runtime for connecting an execution backend to the Coda
+cloud platform.
 
 It boots a FastAPI service, provisions or reconnects node credentials, manages
 VPN health, consumes Redis jobs, and posts signed execution results back to
@@ -8,18 +9,13 @@ Coda.
 
 ## What It Does
 
-- Bootstraps a node from a self-service token
-- Reconnects later with persisted JWT credentials
-- Verifies and monitors VPN connectivity
-- Consumes jobs from Redis streams
-- Sends signed webhook results to Coda
-- Supports a custom execution backend
-
-## Why It Exists
-
-`coda-self-service` is the machine-side runtime for a Coda-connected node. The
-package is intentionally small: one service, one CLI, one configuration model,
-and a narrow operational surface that is easy to deploy and debug.
+- Bootstraps a node from a one-time self-service token
+- Reconnects on restart with persisted JWT credentials
+- Verifies and continuously monitors VPN connectivity
+- Consumes jobs from Redis Streams with crash recovery
+- Sends JWT-signed webhook results to Coda with retry
+- Drains in-flight work on graceful shutdown
+- Supports pluggable execution backends
 
 ## Install
 
@@ -27,129 +23,166 @@ and a narrow operational surface that is easy to deploy and debug.
 uv sync --dev
 ```
 
-The project requires Python 3.11+ and exposes two equivalent entry points:
+Requires Python 3.11+.  Two equivalent CLI entry points are installed:
 
 - `coda`
 - `coda-self-service`
 
 ## Quick Start
 
-First bootstrap with a self-service token:
+Bootstrap with a self-service token:
 
 ```bash
 uv run coda start --token <bootstrap-token>
 ```
 
-Or run from environment variables:
+Or set the token as an environment variable:
 
 ```bash
 export CODA_SELF_SERVICE_TOKEN=<bootstrap-token>
 uv run coda start
 ```
 
-After a successful first run, the runtime persists the issued credentials and
-can restart without a new bootstrap token.
+After a successful first run, credentials are persisted to disk and
+subsequent restarts reconnect automatically without a fresh token.
 
 ## How It Works
 
 On startup the runtime:
 
-1. Loads configuration from `CODA_` environment variables, then persisted state,
-   then defaults.
+1. Loads configuration from `CODA_`-prefixed environment variables, then
+   persisted state on disk, then hardcoded defaults.
 2. Connects to Coda using either a bootstrap token or persisted JWT
-   credentials.
+   credentials (with exponential-backoff retry on transient failures).
 3. Brings up or validates VPN connectivity when required.
-4. Starts the FastAPI service and background Redis consumer.
-5. Executes jobs and sends signed webhook callbacks.
+4. Starts the FastAPI service and a background Redis Streams consumer.
+5. Dispatches jobs to the configured executor and posts signed results
+   back via webhook.
 
-The service exposes:
+On shutdown the runtime drains the in-flight job (up to
+`CODA_SHUTDOWN_DRAIN_TIMEOUT_SEC`), cancels background tasks, closes
+connections, and stops the managed VPN daemon.
 
-- `GET /health`
-- `GET /ready`
+## Endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | Liveness probe.  Returns `200` if the process is running. |
+| `GET /ready` | Readiness probe.  Returns `200` with component status when VPN and Redis are healthy; `503` when either is degraded or the check times out. |
+
+The `/ready` response body always includes `vpn_state`, `redis_healthy`,
+and `current_job` fields for observability.
 
 ## Configuration
 
-Configuration is driven by `CODA_` environment variables.
+All settings are driven by `CODA_`-prefixed environment variables.  When
+no self-service token is provided, the runtime automatically loads
+previously persisted config from disk.
 
-Common settings:
+### Core
 
-- `CODA_SELF_SERVICE_TOKEN`: bootstrap token for first-time provisioning
-- `CODA_JWT_PRIVATE_KEY`: PEM private key for direct JWT-based startup
-- `CODA_JWT_KEY_ID`: JWT key id
-- `CODA_REDIS_URL`: Redis connection string
-- `CODA_WEBAPP_URL`: Coda base URL
-- `CODA_HOST`: bind host for the local FastAPI service
-- `CODA_PORT`: bind port for the local FastAPI service
-- `CODA_EXECUTOR_FACTORY`: import path for a custom executor factory
+| Variable | Default | Description |
+|---|---|---|
+| `CODA_SELF_SERVICE_TOKEN` | `""` | One-time bootstrap token for first-run provisioning. |
+| `CODA_JWT_PRIVATE_KEY` | `""` | PEM-encoded RSA private key for direct JWT startup. |
+| `CODA_JWT_KEY_ID` | `""` | `kid` header value for signed JWTs. |
+| `CODA_REDIS_URL` | `""` | Redis connection string (`redis://…`). |
+| `CODA_WEBAPP_URL` | `""` | Coda cloud base URL. |
+| `CODA_HOST` | `0.0.0.0` | Bind address for the FastAPI server. |
+| `CODA_PORT` | `8080` | Bind port for the FastAPI server. |
+| `CODA_EXECUTOR_FACTORY` | `""` | Import path for a custom executor (see below). |
 
-Direct JWT startup is supported when `CODA_JWT_PRIVATE_KEY` and
-`CODA_JWT_KEY_ID` are already available. Otherwise, provide
-`CODA_SELF_SERVICE_TOKEN` and let the runtime provision itself.
+Provide either `CODA_SELF_SERVICE_TOKEN` for auto-provisioning, or both
+`CODA_JWT_PRIVATE_KEY` and `CODA_JWT_KEY_ID` for direct JWT startup.
+
+### VPN
+
+| Variable | Default | Description |
+|---|---|---|
+| `CODA_VPN_REQUIRED` | `true` | Fail preflight if no VPN tunnel is detected. |
+| `CODA_VPN_CHECK_INTERVAL_SEC` | `10` | Seconds between background VPN health checks. |
+| `CODA_VPN_INTERFACE_HINT` | `null` | Specific TUN/TAP interface name to look for. |
+| `CODA_ALLOW_DEGRADED_STARTUP` | `false` | Allow the server to start even if VPN preflight fails. |
+
+### Resilience
+
+| Variable | Default | Description |
+|---|---|---|
+| `CODA_SELF_SERVICE_CONNECT_RETRIES` | `3` | Max attempts when connecting to the Coda cloud. |
+| `CODA_SHUTDOWN_DRAIN_TIMEOUT_SEC` | `30` | Seconds to wait for an in-flight job before forced shutdown. |
+| `CODA_SELF_SERVICE_TIMEOUT_SEC` | `15` | HTTP timeout for self-service connect requests. |
 
 ## Persisted State
 
-After a successful self-service bootstrap, the runtime writes:
+After a successful bootstrap the runtime writes:
 
-- `/tmp/coda.config`
-- `/tmp/coda-private-key`
+| File | Contents |
+|---|---|
+| `/tmp/coda.config` | JSON with QPU identity, Redis URL, API paths, and VPN settings. |
+| `/tmp/coda-private-key` | PEM-encoded RSA private key. |
 
-On POSIX systems both files are expected to use `0600` permissions.
+Both files use `0600` permissions on POSIX systems and are validated on
+read.  They enable token-free reconnects across restarts, preserving JWT
+credentials, machine fingerprint, VPN profile path, and connection
+settings.
 
-These files allow later reconnects without a fresh token, including reuse of:
-
-- JWT credentials
-- machine fingerprint
-- saved VPN profile path
-- runtime connection settings
+To wipe persisted state, run `coda reset`.
 
 ## CLI
 
-Start the node:
-
-```bash
-uv run coda start
+```
+coda start [--token TOKEN] [--host HOST] [--port PORT]
 ```
 
-Print a local diagnostic summary:
+Start the node server.  Pass `--token` on first run for bootstrap.
 
-```bash
-uv run coda doctor
+```
+coda doctor
 ```
 
-Stop the managed VPN daemon:
+Print a diagnostic summary (endpoints, executor, VPN interface, OpenVPN
+status).
 
-```bash
-uv run coda stop-vpn
+```
+coda stop-vpn
 ```
 
-Clear persisted runtime state and VPN artifacts:
+Stop the managed OpenVPN daemon without clearing credentials.
 
-```bash
-uv run coda reset
 ```
+coda reset
+```
+
+Stop the VPN daemon and remove all persisted runtime files.
 
 ## Custom Executor
 
-If `CODA_EXECUTOR_FACTORY` is unset, the runtime uses a `NoopExecutor` so the
-service can boot without hardware integration.
+When `CODA_EXECUTOR_FACTORY` is unset the runtime uses a built-in
+`NoopExecutor` that returns deterministic all-zeros results, allowing the
+service to boot without hardware integration.
 
-To provide a real backend, export a factory path such as:
+To connect a real backend, point the variable at a `module:attribute`
+import path:
 
 ```bash
 export CODA_EXECUTOR_FACTORY="my_project.executor:create_executor"
 ```
 
-The factory should return an object implementing:
+The target must be either a pre-built object with a `run` method, or a
+callable factory.  If the factory accepts parameters, the `Settings`
+object is passed in automatically.
 
 ```python
 from self_service.server.executor import ExecutionResult
+from self_service.server.ir import NativeGateIR
 
 
 class MyExecutor:
-    async def run(self, ir, shots: int) -> ExecutionResult:
+    async def run(self, ir: NativeGateIR, shots: int) -> ExecutionResult:
+        counts = run_on_hardware(ir, shots)
         return ExecutionResult(
-            counts={"0" * len(ir.measurements): shots},
-            execution_time_ms=1.0,
+            counts=counts,
+            execution_time_ms=42.0,
             shots_completed=shots,
         )
 
@@ -158,9 +191,36 @@ def create_executor() -> MyExecutor:
     return MyExecutor()
 ```
 
+## Error Handling
+
+All domain exceptions inherit from `CodaError`, making it easy to
+distinguish expected operational errors from unexpected bugs:
+
+| Exception | When |
+|---|---|
+| `ConfigError` | Invalid or missing configuration. |
+| `AuthError` | JWT signing or verification failure. |
+| `VPNError` | VPN tunnel or health check failure. |
+| `SelfServiceError` | Bootstrap, connect, or reconnect failure. |
+| `ExecutorError` | Executor loading or job execution failure. |
+| `WebhookError` | Webhook delivery failure. |
+
+Import from the top-level package:
+
+```python
+from self_service import CodaError
+from self_service.errors import ConfigError, VPNError
+```
+
 ## Development
 
-Run the local quality checks:
+Install dependencies (including dev tools):
+
+```bash
+uv sync --dev
+```
+
+Run the full quality check suite:
 
 ```bash
 uv run ruff check .
@@ -169,7 +229,7 @@ uv run mypy src/self_service
 uv run pytest --cov --cov-report=term-missing
 ```
 
-Install pre-commit hooks:
+Install pre-commit hooks (runs ruff format and lint on every commit):
 
 ```bash
 uv run pre-commit install
@@ -181,14 +241,12 @@ Run all hooks manually:
 uv run pre-commit run --all-files
 ```
 
-## Design Notes
+## Architecture
 
-- FastAPI provides the HTTP service and application lifecycle
-- Pydantic settings handle environment-driven configuration
-- Redis is used for job delivery
-- OpenVPN is managed as an external dependency when VPN is required
-
-The README structure here is intentionally closer to the style of the
-[FastAPI README](https://github.com/fastapi/fastapi): brief overview first,
-clear install and run steps next, then only the operational details needed to
-use the project in production.
+- **FastAPI** — HTTP service, lifespan management, health endpoints
+- **Pydantic Settings** — environment-driven configuration with layered
+  defaults and persisted state
+- **Redis Streams** — job delivery with consumer groups and crash recovery
+- **httpx** — async HTTP for webhooks and self-service API calls
+- **RS256 JWT** — authentication between the node and the Coda cloud
+- **OpenVPN** — managed as a subprocess when VPN connectivity is required
