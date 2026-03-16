@@ -119,6 +119,9 @@ def test_stop_daemon_returns_false_when_no_pid_file(tmp_path: Path) -> None:
         assert daemon.stop_daemon() is False
 
 
+@pytest.mark.skipif(
+    os.name == "nt", reason="taskkill behaves differently on Windows CI"
+)
 def test_stop_daemon_cleans_up_stale_pid_file(tmp_path: Path) -> None:
     pid_path = tmp_path / "test.pid"
     pid_path.write_text("99999999\n")  # Dead process
