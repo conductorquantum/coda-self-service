@@ -75,12 +75,6 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run the server as a background daemon",
     )
-    start_parent.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging (INFO level instead of WARNING)",
-    )
 
     parser = argparse.ArgumentParser(prog="coda")
     parser.add_argument(
@@ -284,13 +278,12 @@ def main() -> None:
                 ("MODE", _start_mode(settings.self_service_token)),
             ],
         )
-        verbose = getattr(args, "verbose", False)
         uvicorn.run(
             "self_service.server.app:app",
             host=settings.host,
             port=settings.port,
             reload=False,
-            log_level="info" if verbose else "warning",
+            log_level="warning",
         )
         return
 

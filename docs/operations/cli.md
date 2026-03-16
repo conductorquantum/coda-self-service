@@ -9,7 +9,7 @@ running as a background process.
 Start the FastAPI server in foreground or daemon mode.
 
 ```
-coda start [--token TOKEN] [--host HOST] [--port PORT] [--daemon] [--verbose]
+coda start [--token TOKEN] [--host HOST] [--port PORT] [--daemon]
 ```
 
 | Flag | Env Override | Description |
@@ -18,7 +18,6 @@ coda start [--token TOKEN] [--host HOST] [--port PORT] [--daemon] [--verbose]
 | `--host`, `-H` | `CODA_HOST` | Bind address (default: `0.0.0.0`). |
 | `--port`, `-p` | `CODA_PORT` | Bind port (default: `8080`). |
 | `--daemon`, `-d` | — | Run as a background daemon process. |
-| `--verbose`, `-v` | — | Enable verbose logging (INFO level instead of WARNING). |
 
 CLI flags are injected into environment variables before `Settings` is
 constructed, so they take highest precedence.
@@ -29,7 +28,7 @@ and startup mode (`token` or `env`).
 ### Foreground Mode (default)
 
 The server runs under uvicorn with `reload=False` and
-`log_level="warning"` (or `"info"` if `--verbose` is set). Use Ctrl+C to stop.
+`log_level="warning"`. Use Ctrl+C to stop.
 
 ### Daemon Mode (`--daemon`)
 

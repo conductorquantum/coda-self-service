@@ -131,12 +131,11 @@ To wipe persisted state, run `coda reset`.
 ## CLI
 
 ```
-coda start [--token TOKEN] [--host HOST] [--port PORT] [--daemon] [--verbose]
+coda start [--token TOKEN] [--host HOST] [--port PORT] [--daemon]
 ```
 
 Start the node server.  Pass `--token` on first run for self-service
 provisioning.  Use `--daemon` (or `-d`) to run as a background process.
-Use `--verbose` (or `-v`) for INFO-level logging instead of WARNING.
 
 ```
 coda stop
