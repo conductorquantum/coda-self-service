@@ -31,6 +31,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "ProbeResult",
+    "ServiceState",
+    "VPNGuard",
+    "VPNStatus",
+    "detect_tun_interface",
+    "validate_key_permissions",
+]
+
 
 class ServiceState(Enum):
     """Overall readiness state of the node runtime."""
@@ -118,7 +127,7 @@ def _parse_windows_tun_interfaces(
     return None
 
 
-def _detect_tun_interface(hint: str | None = None) -> str | None:
+def detect_tun_interface(hint: str | None = None) -> str | None:
     """Detect an active VPN tunnel interface on the local machine.
 
     Uses platform-specific commands (``ifconfig`` on macOS, ``ip link``
@@ -297,7 +306,7 @@ class VPNGuard:
         When *vpn_required* is ``False``, all checks pass regardless of
         the actual tunnel state.
         """
-        iface = await asyncio.to_thread(_detect_tun_interface, self._interface_hint)
+        iface = await asyncio.to_thread(detect_tun_interface, self._interface_hint)
         interface_found = iface is not None
 
         if not interface_found and self._vpn_required:

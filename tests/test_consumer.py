@@ -177,3 +177,43 @@ class TestConsumer:
         )
         mock_webhook.send_error.assert_called_once()
         assert mock_redis._hashes["qpu:job:job-2:status"]["state"] == "failed"
+
+    def test_idle_event_set_after_job(
+        self,
+        consumer: RedisConsumer,
+        mock_redis: MockRedis,
+        mock_runner: AsyncMock,
+    ) -> None:
+        assert consumer._idle_event.is_set()
+        asyncio.run(
+            consumer._process_message(
+                "msg-4",
+                {
+                    "job_id": "job-3",
+                    "ir_json": VALID_IR_JSON,
+                    "shots": "1024",
+                    "callback_url": "https://example.com/callback",
+                },
+            )
+        )
+        assert consumer._idle_event.is_set()
+        assert consumer.current_job_id is None
+
+
+class TestDrain:
+    def test_drain_returns_true_when_idle(
+        self,
+        consumer: RedisConsumer,
+    ) -> None:
+        result = asyncio.run(consumer.drain(timeout=0.1))
+        assert result is True
+        assert consumer._running is False
+
+    def test_drain_returns_false_on_timeout(
+        self,
+        consumer: RedisConsumer,
+    ) -> None:
+        consumer._idle_event.clear()
+        result = asyncio.run(consumer.drain(timeout=0.05))
+        assert result is False
+        assert consumer._running is False

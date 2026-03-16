@@ -25,6 +25,15 @@ from typing import Any
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from self_service.errors import ConfigError
+
+__all__ = [
+    "PERSISTED_CONFIG_PATH",
+    "PERSISTED_PRIVATE_KEY_PATH",
+    "Settings",
+    "load_persisted_runtime_config",
+]
+
 _RUNTIME_DIR = Path(tempfile.gettempdir())
 PERSISTED_CONFIG_PATH = _RUNTIME_DIR / "coda.config"
 PERSISTED_PRIVATE_KEY_PATH = _RUNTIME_DIR / "coda-private-key"
@@ -36,7 +45,7 @@ def _read_secure_text(path: Path) -> str:
     if os.name != "nt":
         mode = stat.S_IMODE(path.stat().st_mode)
         if mode != 0o600:
-            raise ValueError(f"{path} must have permissions 0600")
+            raise ConfigError(f"{path} must have permissions 0600")
     return path.read_text()
 
 
@@ -65,7 +74,7 @@ def load_persisted_runtime_config() -> dict[str, Any]:
 
     data = json.loads(raw_config)
     if not isinstance(data, dict):
-        raise ValueError(f"{PERSISTED_CONFIG_PATH} must contain a JSON object")
+        raise ConfigError(f"{PERSISTED_CONFIG_PATH} must contain a JSON object")
 
     private_key_path = Path(
         str(data.get("jwt_private_key_path") or PERSISTED_PRIVATE_KEY_PATH)
@@ -152,6 +161,9 @@ class Settings(BaseSettings):
     self_service_vpn_profile_path: str = (
         f"{tempfile.gettempdir()}/coda-self-service.ovpn"
     )
+
+    self_service_connect_retries: int = 3
+    shutdown_drain_timeout_sec: int = 30
 
     executor_factory: str = ""
     advertised_provider: str = "coda"

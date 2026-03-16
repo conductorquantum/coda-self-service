@@ -30,8 +30,14 @@ from self_service.server.config import (
     PERSISTED_PRIVATE_KEY_PATH,
     Settings,
 )
-from self_service.vpn import OPENVPN_LOG_PATH, OPENVPN_PID_PATH, kill_openvpn_daemon
-from self_service.vpn.guard import _detect_tun_interface
+from self_service.vpn import (
+    OPENVPN_LOG_PATH,
+    OPENVPN_PID_PATH,
+    detect_tun_interface,
+    kill_openvpn_daemon,
+)
+
+__all__ = ["main"]
 
 _BANNER_WIDTH = 48
 
@@ -150,7 +156,7 @@ def _reset() -> int:
 def _doctor() -> int:
     settings = Settings()
     openvpn_bin = shutil.which("openvpn") or shutil.which("openvpn.exe")
-    iface = _detect_tun_interface(settings.vpn_interface_hint)
+    iface = detect_tun_interface(settings.vpn_interface_hint)
     pid_exists = Path(OPENVPN_PID_PATH).exists()
 
     _print_banner(

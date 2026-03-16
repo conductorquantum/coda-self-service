@@ -8,11 +8,11 @@ import pytest
 
 from self_service.vpn import ServiceState, VPNGuard, VPNStatus, validate_key_permissions
 from self_service.vpn.guard import (
-    _detect_tun_interface,
     _parse_darwin_tun_interfaces,
     _parse_windows_tun_interfaces,
     _probe_target,
     _resolve_host,
+    detect_tun_interface,
 )
 
 
@@ -41,7 +41,7 @@ def test_detect_tun_interface_windows(_sys: MagicMock, mock_run: MagicMock) -> N
         returncode=0,
         stdout='[{"Name":"OpenVPN Wintun","InterfaceDescription":"OpenVPN Wintun","Status":"Up"}]',
     )
-    assert _detect_tun_interface() == "OpenVPN Wintun"
+    assert detect_tun_interface() == "OpenVPN Wintun"
 
 
 @patch("self_service.vpn.guard.socket.getaddrinfo")
@@ -83,7 +83,7 @@ async def test_probe_target_connection_error() -> None:
 
 @pytest.mark.asyncio
 async def test_vpn_guard_passes_when_not_required() -> None:
-    with patch("self_service.vpn.guard._detect_tun_interface", return_value=None):
+    with patch("self_service.vpn.guard.detect_tun_interface", return_value=None):
         guard = VPNGuard(vpn_required=False)
         status = await guard.preflight()
     assert status.ok is True

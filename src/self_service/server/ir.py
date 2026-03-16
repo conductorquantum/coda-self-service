@@ -28,6 +28,15 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+__all__ = [
+    "GATE_SPECS",
+    "LEGAL_GATES",
+    "GateOp",
+    "IRMetadata",
+    "NativeGate",
+    "NativeGateIR",
+]
+
 
 class NativeGate(StrEnum):
     """Supported native gate identifiers across all hardware targets."""

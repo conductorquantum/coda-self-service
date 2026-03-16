@@ -21,6 +21,8 @@ from self_service.server.auth import sign_token
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["WebhookClient", "WebhookPayload"]
+
 WebhookPayloadValue = dict[str, int] | float | int | str
 
 _MAX_RETRIES = 3

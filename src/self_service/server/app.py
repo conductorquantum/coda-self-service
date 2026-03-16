@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager, suppress
 
 import redis.asyncio as aioredis
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from self_service.server.config import Settings
 from self_service.server.consumer import RedisConsumer
@@ -98,14 +99,18 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
 
         yield
 
-        consumer.stop()
         guard.stop()
         watch_task.cancel()
-        consumer_task.cancel()
         with suppress(asyncio.CancelledError):
             await watch_task
+
+        drained = await consumer.drain(timeout=settings.shutdown_drain_timeout_sec)
+        if not drained:
+            logger.warning("Drain timeout expired, cancelling in-flight job")
+        consumer_task.cancel()
         with suppress(asyncio.CancelledError):
             await consumer_task
+
         await webhook.close()
         await redis_client.aclose()
         kill_openvpn_daemon()
@@ -116,16 +121,29 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/ready")
-    async def ready() -> dict[str, object]:
+    async def _check_readiness() -> dict[str, object]:
         guard: VPNGuard = app.state.guard
         consumer: RedisConsumer = app.state.consumer
+        vpn_ok = guard.is_ready
+        redis_ok = consumer.redis_healthy
         return {
-            "ready": guard.is_ready,
+            "ready": vpn_ok and redis_ok,
             "vpn_state": guard.state.value,
-            "redis_healthy": consumer.redis_healthy,
+            "redis_healthy": redis_ok,
             "current_job": consumer.current_job_id,
         }
+
+    @app.get("/ready")
+    async def ready() -> JSONResponse:
+        try:
+            result = await asyncio.wait_for(_check_readiness(), timeout=5.0)
+            status_code = 200 if result["ready"] else 503
+            return JSONResponse(content=result, status_code=status_code)
+        except TimeoutError:
+            return JSONResponse(
+                content={"ready": False, "reason": "health check timeout"},
+                status_code=503,
+            )
 
     return app
 

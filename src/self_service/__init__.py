@@ -11,7 +11,8 @@ Typical usage::
     uv run coda start --token <bootstrap-token>
 """
 
+from self_service.errors import CodaError
 from self_service.server import app, create_app
 
 __version__ = "0.1.0"
-__all__ = ["__version__", "app", "create_app"]
+__all__ = ["CodaError", "__version__", "app", "create_app"]

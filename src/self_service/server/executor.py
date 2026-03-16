@@ -21,12 +21,15 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
+from self_service.errors import ExecutorError
 from self_service.server.ir import NativeGateIR
 
 if TYPE_CHECKING:
     from self_service.server.config import Settings
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["ExecutionResult", "JobExecutor", "NoopExecutor", "load_executor"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,7 +83,7 @@ class NoopExecutor:
 def _load_attr(import_path: str) -> Any:
     module_name, sep, attr_name = import_path.partition(":")
     if not sep or not module_name or not attr_name:
-        raise ValueError(
+        raise ExecutorError(
             "CODA_EXECUTOR_FACTORY must look like 'package.module:factory_name'"
         )
     module = importlib.import_module(module_name)
@@ -118,14 +121,14 @@ def load_executor(settings: Settings) -> JobExecutor:
         return cast(JobExecutor, target)
 
     if not callable(target):
-        raise TypeError(
+        raise ExecutorError(
             f"Executor target {settings.executor_factory!r} is not callable"
         )
 
     parameters = inspect.signature(target).parameters
     executor = target(settings) if parameters else target()
     if not hasattr(executor, "run"):
-        raise TypeError(
+        raise ExecutorError(
             f"Executor factory {settings.executor_factory!r} did not return a runner"
         )
     return cast(JobExecutor, executor)

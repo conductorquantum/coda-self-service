@@ -45,10 +45,24 @@ import httpx
 if TYPE_CHECKING:
     from self_service.server.config import Settings
 
+from self_service.errors import SelfServiceError
 from self_service.server.auth import sign_token
 from self_service.server.config import PERSISTED_CONFIG_PATH, PERSISTED_PRIVATE_KEY_PATH
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "OPENVPN_LOG_PATH",
+    "OPENVPN_PID_PATH",
+    "SelfServiceError",
+    "apply_self_service_bundle",
+    "connect_settings",
+    "ensure_persisted_vpn",
+    "fetch_reconnect_bundle",
+    "fetch_self_service_bundle",
+    "kill_openvpn_daemon",
+    "self_service_settings",
+]
 
 _RUNTIME_DIR = Path(tempfile.gettempdir())
 OPENVPN_PID_PATH = _RUNTIME_DIR / "coda-self-service-openvpn.pid"
@@ -56,14 +70,6 @@ OPENVPN_LOG_PATH = _RUNTIME_DIR / "coda-self-service-openvpn.log"
 
 _TUNNEL_POLL_INTERVAL = 1.0
 _TUNNEL_TIMEOUT = 30.0
-
-
-class SelfServiceError(RuntimeError):
-    """Raised when self-service provisioning or VPN setup fails.
-
-    Covers token validation errors, HTTP failures from the Coda API,
-    missing VPN profiles, OpenVPN launch failures, and tunnel timeouts.
-    """
 
 
 def _machine_fingerprint() -> str:
@@ -243,11 +249,11 @@ async def _wait_for_tunnel(
     timeout: float = _TUNNEL_TIMEOUT,
     poll_interval: float = _TUNNEL_POLL_INTERVAL,
 ) -> str:
-    from self_service.vpn.guard import _detect_tun_interface
+    from self_service.vpn.guard import detect_tun_interface
 
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        iface = await asyncio.to_thread(_detect_tun_interface, hint)
+        iface = await asyncio.to_thread(detect_tun_interface, hint)
         if iface is not None:
             return iface
         await asyncio.sleep(poll_interval)
@@ -282,21 +288,50 @@ def _resolve_machine_fingerprint(settings: Settings) -> str:
 
 
 async def _post_connect(
-    settings: Settings, *, auth_header: str, payload: dict[str, Any]
+    settings: Settings,
+    *,
+    auth_header: str,
+    payload: dict[str, Any],
+    max_retries: int = 3,
 ) -> dict[str, Any]:
-    async with httpx.AsyncClient(timeout=settings.self_service_timeout_sec) as client:
-        response = await client.post(
-            settings.connect_url,
-            json=payload,
-            headers={"Authorization": auth_header},
-        )
+    last_exc: Exception | None = None
+    for attempt in range(1, max_retries + 1):
         try:
-            response.raise_for_status()
+            async with httpx.AsyncClient(
+                timeout=settings.self_service_timeout_sec
+            ) as client:
+                response = await client.post(
+                    settings.connect_url,
+                    json=payload,
+                    headers={"Authorization": auth_header},
+                )
+                response.raise_for_status()
+                return cast(dict[str, Any], response.json())
         except httpx.HTTPStatusError as exc:
-            raise SelfServiceError(
-                f"Self-service request failed ({response.status_code}): {response.text[:400]}"
-            ) from exc
-        return cast(dict[str, Any], response.json())
+            if exc.response.status_code < 500:
+                raise SelfServiceError(
+                    f"Self-service request failed ({exc.response.status_code}): "
+                    f"{exc.response.text[:400]}"
+                ) from exc
+            last_exc = exc
+        except httpx.TransportError as exc:
+            last_exc = exc
+
+        if attempt < max_retries:
+            delay = 1.0 * (2.0 ** (attempt - 1))
+            logger.warning(
+                "Connect request to %s failed (attempt %d/%d): %s — retrying in %.1fs",
+                settings.connect_url,
+                attempt,
+                max_retries,
+                last_exc,
+                delay,
+            )
+            await asyncio.sleep(delay)
+
+    raise SelfServiceError(
+        f"Self-service connect failed after {max_retries} attempts: {last_exc}"
+    ) from last_exc
 
 
 async def fetch_self_service_bundle(settings: Settings) -> dict[str, Any]:
@@ -328,6 +363,7 @@ async def fetch_self_service_bundle(settings: Settings) -> dict[str, Any]:
         settings,
         auth_header=f"Bearer {settings.self_service_token}",
         payload=payload,
+        max_retries=settings.self_service_connect_retries,
     )
 
 
@@ -362,6 +398,7 @@ async def fetch_reconnect_bundle(settings: Settings) -> dict[str, Any]:
         settings,
         auth_header=f"Bearer {token}",
         payload=payload,
+        max_retries=settings.self_service_connect_retries,
     )
 
 
@@ -452,10 +489,10 @@ async def apply_self_service_bundle(settings: Settings, bundle: dict[str, Any]) 
             await asyncio.to_thread(
                 _write_vpn_profile, settings.self_service_vpn_profile_path, profile
             )
-            from self_service.vpn.guard import _detect_tun_interface
+            from self_service.vpn.guard import detect_tun_interface
 
             iface = await asyncio.to_thread(
-                _detect_tun_interface, settings.vpn_interface_hint
+                detect_tun_interface, settings.vpn_interface_hint
             )
             if iface is None:
                 await asyncio.to_thread(
@@ -530,9 +567,9 @@ async def ensure_persisted_vpn(settings: Settings) -> None:
             )
         return
 
-    from self_service.vpn.guard import _detect_tun_interface
+    from self_service.vpn.guard import detect_tun_interface
 
-    iface = await asyncio.to_thread(_detect_tun_interface, settings.vpn_interface_hint)
+    iface = await asyncio.to_thread(detect_tun_interface, settings.vpn_interface_hint)
     if iface is not None:
         return
 

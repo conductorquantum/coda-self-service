@@ -35,7 +35,14 @@ if TYPE_CHECKING:
     from self_service.server.webhook import WebhookClient
 
 logger = logging.getLogger(__name__)
+
+__all__ = ["RedisConsumer"]
+
 T = TypeVar("T")
+
+_BACKOFF_BASE = 1.0
+_BACKOFF_FACTOR = 2.0
+_BACKOFF_MAX = 60.0
 
 
 async def _await_if_needed(value: T | Awaitable[T]) -> T:
@@ -77,6 +84,8 @@ class RedisConsumer:
         self._stream = f"qpu:{qpu_id}:jobs"
         self._group = f"qpu:{qpu_id}:workers"
         self._running = False
+        self._idle_event = asyncio.Event()
+        self._idle_event.set()
         self.current_job_id: str | None = None
         self.last_job_at: str | None = None
         self.redis_healthy = True
@@ -137,14 +146,16 @@ class RedisConsumer:
         """Run the main consume loop until :meth:`stop` is called.
 
         On each iteration the loop blocks (up to 5 s) for a new message
-        via ``XREADGROUP``.  Connection errors trigger a 5 s backoff;
-        unexpected errors trigger a 1 s backoff.  The loop sets
-        :attr:`redis_healthy` to reflect the current connection state.
+        via ``XREADGROUP``.  Connection errors trigger exponential
+        backoff (1 s → 60 s max); unexpected errors trigger a 1 s
+        backoff.  The loop sets :attr:`redis_healthy` to reflect the
+        current connection state.
         """
         self._running = True
         await self.setup()
         await self.recover_pending()
 
+        consecutive_failures = 0
         while self._running:
             try:
                 messages = await self._redis.xreadgroup(
@@ -155,6 +166,7 @@ class RedisConsumer:
                     block=5000,
                 )
                 self.redis_healthy = True
+                consecutive_failures = 0
 
                 if not messages:
                     continue
@@ -164,8 +176,17 @@ class RedisConsumer:
                         await self._process_message(message_id, fields)
             except (ConnectionError, OSError, aioredis.ConnectionError):
                 self.redis_healthy = False
-                logger.warning("Redis connection lost, retrying in 5s")
-                await asyncio.sleep(5)
+                consecutive_failures += 1
+                delay = min(
+                    _BACKOFF_BASE * (_BACKOFF_FACTOR ** (consecutive_failures - 1)),
+                    _BACKOFF_MAX,
+                )
+                logger.warning(
+                    "Redis connection lost (attempt %d), retrying in %.1fs",
+                    consecutive_failures,
+                    delay,
+                )
+                await asyncio.sleep(delay)
             except Exception:
                 logger.exception("Consumer loop error")
                 await asyncio.sleep(1)
@@ -173,6 +194,44 @@ class RedisConsumer:
     def stop(self) -> None:
         """Signal the consume loop to exit after the current iteration."""
         self._running = False
+
+    async def drain(self, timeout: float = 30.0) -> bool:
+        """Wait for any in-flight job to finish, then stop.
+
+        Args:
+            timeout: Maximum seconds to wait for the current job.
+
+        Returns:
+            ``True`` if drained cleanly, ``False`` if the timeout
+            expired with a job still running.
+        """
+        self.stop()
+        try:
+            await asyncio.wait_for(self._idle_event.wait(), timeout=timeout)
+            return True
+        except TimeoutError:
+            return False
+
+    async def _safe_hset(self, key: str, mapping: dict[str, str]) -> bool:
+        """Attempt HSET, return False on connection error."""
+        try:
+            await _await_if_needed(self._redis.hset(key, mapping=mapping))
+            return True
+        except (ConnectionError, OSError, aioredis.ConnectionError):
+            logger.warning("Redis unavailable, skipping status update for %s", key)
+            return False
+
+    async def _safe_xack(self, message_id: str) -> bool:
+        """Attempt XACK, return False on connection error."""
+        try:
+            await self._redis.xack(self._stream, self._group, message_id)
+            return True
+        except (ConnectionError, OSError, aioredis.ConnectionError):
+            logger.warning(
+                "Redis unavailable, could not XACK %s (will be retried via crash recovery)",
+                message_id,
+            )
+            return False
 
     async def _process_message(self, message_id: str, fields: dict[str, str]) -> None:
         job_id = fields["job_id"]
@@ -182,20 +241,19 @@ class RedisConsumer:
             self._redis.hget(f"qpu:job:{job_id}:status", "state")
         )
         if status in ("completed", b"completed"):
-            await self._redis.xack(self._stream, self._group, message_id)
+            await self._safe_xack(message_id)
             return
 
+        self._idle_event.clear()
         self.current_job_id = job_id
-        await _await_if_needed(
-            self._redis.hset(
-                f"qpu:job:{job_id}:status",
-                mapping={
-                    "state": "executing",
-                    "started_at": datetime.now(UTC).isoformat(),
-                    "message_id": message_id,
-                    "qpu_id": self._qpu_id,
-                },
-            )
+        await self._safe_hset(
+            f"qpu:job:{job_id}:status",
+            {
+                "state": "executing",
+                "started_at": datetime.now(UTC).isoformat(),
+                "message_id": message_id,
+                "qpu_id": self._qpu_id,
+            },
         )
 
         try:
@@ -203,14 +261,12 @@ class RedisConsumer:
             shots = int(fields["shots"])
             result = await self._runner.run(ir, shots)
 
-            await _await_if_needed(
-                self._redis.hset(
-                    f"qpu:job:{job_id}:status",
-                    mapping={
-                        "state": "completed",
-                        "completed_at": datetime.now(UTC).isoformat(),
-                    },
-                )
+            await self._safe_hset(
+                f"qpu:job:{job_id}:status",
+                {
+                    "state": "completed",
+                    "completed_at": datetime.now(UTC).isoformat(),
+                },
             )
 
             payload = WebhookPayload(
@@ -224,20 +280,19 @@ class RedisConsumer:
             self.last_job_at = datetime.now(UTC).isoformat()
         except Exception as exc:
             logger.error("Job %s failed: %s", job_id, exc, exc_info=True)
-            await _await_if_needed(
-                self._redis.hset(
-                    f"qpu:job:{job_id}:status",
-                    mapping={
-                        "state": "failed",
-                        "error": str(exc)[:500],
-                        "failed_at": datetime.now(UTC).isoformat(),
-                    },
-                )
+            await self._safe_hset(
+                f"qpu:job:{job_id}:status",
+                {
+                    "state": "failed",
+                    "error": str(exc)[:500],
+                    "failed_at": datetime.now(UTC).isoformat(),
+                },
             )
             try:
                 await self._webhook.send_error(callback_url, job_id, str(exc)[:500])
             except Exception:
                 logger.exception("Failed to send error webhook for job %s", job_id)
         finally:
-            await self._redis.xack(self._stream, self._group, message_id)
+            await self._safe_xack(message_id)
             self.current_job_id = None
+            self._idle_event.set()

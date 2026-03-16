@@ -24,6 +24,16 @@ import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
+__all__ = [
+    "DEFAULT_ISSUER",
+    "DEFAULT_TTL",
+    "KeyPair",
+    "generate_keypair",
+    "sign_token",
+    "verify_token",
+    "verify_token_with_key",
+]
+
 DEFAULT_ISSUER = "coda"
 DEFAULT_TTL = timedelta(hours=1)
 KEY_SIZE = 2048

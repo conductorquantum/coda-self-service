@@ -17,6 +17,7 @@ from self_service.vpn.guard import (
     ServiceState,
     VPNGuard,
     VPNStatus,
+    detect_tun_interface,
     validate_key_permissions,
 )
 from self_service.vpn.service import (
@@ -42,6 +43,7 @@ __all__ = [
     "VPNStatus",
     "apply_self_service_bundle",
     "connect_settings",
+    "detect_tun_interface",
     "ensure_persisted_vpn",
     "fetch_reconnect_bundle",
     "fetch_self_service_bundle",

@@ -6,11 +6,13 @@ from pathlib import Path
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from self_service.server.config import Settings
 from self_service.vpn.service import (
     SelfServiceError,
+    _post_connect,
     _start_openvpn,
     _validate_vpn_profile,
     _wait_for_tunnel,
@@ -131,6 +133,114 @@ class TestFetchSelfServiceBundle:
         )
 
 
+class TestPostConnectRetry:
+    @pytest.mark.asyncio
+    async def test_retries_on_5xx_then_succeeds(self) -> None:
+        settings = Settings()
+        settings.self_service_token = "tok"
+        settings.webapp_url = "https://example.com"
+
+        error_response = MagicMock()
+        error_response.status_code = 503
+        error_response.text = "Service Unavailable"
+        error_response.raise_for_status = MagicMock(
+            side_effect=httpx.HTTPStatusError(
+                "503", request=MagicMock(), response=error_response
+            )
+        )
+
+        ok_response = MagicMock()
+        ok_response.raise_for_status = MagicMock()
+        ok_response.json.return_value = {"ok": True}
+
+        with patch("self_service.vpn.service.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.post = AsyncMock(side_effect=[error_response, ok_response])
+            client.__aenter__ = AsyncMock(return_value=client)
+            client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = client
+
+            with patch(
+                "self_service.vpn.service.asyncio.sleep", new_callable=AsyncMock
+            ):
+                result = await _post_connect(
+                    settings,
+                    auth_header="Bearer tok",
+                    payload={},
+                    max_retries=3,
+                )
+
+        assert result == {"ok": True}
+        assert client.post.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_no_retry_on_4xx(self) -> None:
+        settings = Settings()
+        settings.self_service_token = "tok"
+        settings.webapp_url = "https://example.com"
+
+        error_response = MagicMock()
+        error_response.status_code = 401
+        error_response.text = "Unauthorized"
+        error_response.raise_for_status = MagicMock(
+            side_effect=httpx.HTTPStatusError(
+                "401", request=MagicMock(), response=error_response
+            )
+        )
+
+        with patch("self_service.vpn.service.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.post = AsyncMock(return_value=error_response)
+            client.__aenter__ = AsyncMock(return_value=client)
+            client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = client
+
+            with pytest.raises(SelfServiceError, match="401"):
+                await _post_connect(
+                    settings,
+                    auth_header="Bearer tok",
+                    payload={},
+                    max_retries=3,
+                )
+
+        assert client.post.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_raises_after_retries_exhausted(self) -> None:
+        settings = Settings()
+        settings.self_service_token = "tok"
+        settings.webapp_url = "https://example.com"
+
+        error_response = MagicMock()
+        error_response.status_code = 502
+        error_response.text = "Bad Gateway"
+        error_response.raise_for_status = MagicMock(
+            side_effect=httpx.HTTPStatusError(
+                "502", request=MagicMock(), response=error_response
+            )
+        )
+
+        with patch("self_service.vpn.service.httpx.AsyncClient") as mock_cls:
+            client = AsyncMock()
+            client.post = AsyncMock(return_value=error_response)
+            client.__aenter__ = AsyncMock(return_value=client)
+            client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = client
+
+            with (
+                patch("self_service.vpn.service.asyncio.sleep", new_callable=AsyncMock),
+                pytest.raises(SelfServiceError, match="after 2 attempts"),
+            ):
+                await _post_connect(
+                    settings,
+                    auth_header="Bearer tok",
+                    payload={},
+                    max_retries=2,
+                )
+
+        assert client.post.call_count == 2
+
+
 class TestApplySelfServiceBundle:
     @pytest.mark.asyncio
     async def test_applies_bundle_fields(self) -> None:
@@ -176,15 +286,13 @@ class TestApplySelfServiceBundle:
 class TestWaitForTunnel:
     @pytest.mark.asyncio
     async def test_returns_interface_immediately(self) -> None:
-        with patch(
-            "self_service.vpn.guard._detect_tun_interface", return_value="utun5"
-        ):
+        with patch("self_service.vpn.guard.detect_tun_interface", return_value="utun5"):
             assert await _wait_for_tunnel(hint="utun5", timeout=1.0) == "utun5"
 
     @pytest.mark.asyncio
     async def test_kills_daemon_on_timeout(self) -> None:
         with (
-            patch("self_service.vpn.guard._detect_tun_interface", return_value=None),
+            patch("self_service.vpn.guard.detect_tun_interface", return_value=None),
             patch("self_service.vpn.service._read_openvpn_log_tail", return_value=""),
             patch("self_service.vpn.service.kill_openvpn_daemon") as mock_kill,
         ):
@@ -367,7 +475,7 @@ class TestReconnectWorkflow:
         settings.vpn_interface_hint = "utun5"
 
         with (
-            patch("self_service.vpn.guard._detect_tun_interface", return_value=None),
+            patch("self_service.vpn.guard.detect_tun_interface", return_value=None),
             patch("self_service.vpn.service._start_openvpn") as mock_start,
             patch(
                 "self_service.vpn.service._wait_for_tunnel", new_callable=AsyncMock
