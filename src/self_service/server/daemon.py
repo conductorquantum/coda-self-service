@@ -228,7 +228,9 @@ def stop_daemon(timeout: float = 10.0) -> bool:
                 time.sleep(0.1)
             else:
                 # Process didn't exit, force kill
-                os.kill(pid, signal.SIGKILL)
+                # Use getattr for SIGKILL since it doesn't exist on Windows
+                sigkill = getattr(signal, "SIGKILL", signal.SIGTERM)
+                os.kill(pid, sigkill)
                 time.sleep(0.5)
 
         DAEMON_PID_PATH.unlink(missing_ok=True)
