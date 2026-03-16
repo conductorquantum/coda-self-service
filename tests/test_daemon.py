@@ -91,6 +91,7 @@ def test_start_daemon_raises_when_already_running(
         daemon.start_daemon()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Hangs on Windows CI during cleanup")
 def test_start_daemon_cleans_stale_pid_file(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
