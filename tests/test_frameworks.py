@@ -114,10 +114,9 @@ class TestDeviceConfig:
         assert config.resolved_calibration_path is None
 
     def test_resolved_calibration_path_absolute(self) -> None:
-        config = DeviceConfig(
-            target="x", num_qubits=1, calibration_path="/abs/cal.yaml"
-        )
-        assert config.resolved_calibration_path == Path("/abs/cal.yaml")
+        abs_path = str(Path("/abs/cal.yaml").resolve())
+        config = DeviceConfig(target="x", num_qubits=1, calibration_path=abs_path)
+        assert config.resolved_calibration_path == Path(abs_path)
 
     def test_resolved_calibration_path_relative_from_yaml(self, tmp_path: Path) -> None:
         yaml_file = tmp_path / "device.yaml"
