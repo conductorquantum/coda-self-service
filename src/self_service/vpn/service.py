@@ -144,9 +144,6 @@ def _persist_runtime_config(settings: Settings) -> None:
         "vpn_probe_targets": settings.vpn_probe_targets,
         "self_service_auto_vpn": settings.self_service_auto_vpn,
         "self_service_vpn_profile_path": settings.self_service_vpn_profile_path,
-        "advertised_provider": settings.advertised_provider,
-        "opx_host": settings.opx_host,
-        "opx_port": settings.opx_port,
         "self_service_machine_fingerprint": settings.self_service_machine_fingerprint,
     }
     _write_secure_text(PERSISTED_CONFIG_PATH, json.dumps(persisted, indent=2) + "\n")
@@ -368,9 +365,9 @@ async def _post_connect(
 async def fetch_self_service_bundle(settings: Settings) -> dict[str, Any]:
     """Fetch the provisioning bundle using a one-time self-service token.
 
-    POSTs the machine fingerprint and OPX connection details to the
-    Coda connect endpoint.  The returned bundle contains JWT keys,
-    Redis URL, API paths, and optional VPN configuration.
+    POSTs the machine fingerprint to the Coda connect endpoint.  The
+    returned bundle contains JWT keys, Redis URL, API paths, and
+    optional VPN configuration.
 
     Args:
         settings: Runtime settings (must have a non-empty
@@ -387,8 +384,6 @@ async def fetch_self_service_bundle(settings: Settings) -> dict[str, Any]:
 
     payload = {
         "machine_fingerprint": _resolve_machine_fingerprint(settings),
-        "opx_host": settings.opx_host,
-        "opx_port": settings.opx_port,
     }
     return await _post_connect(
         settings,
@@ -417,8 +412,6 @@ async def fetch_reconnect_bundle(settings: Settings) -> dict[str, Any]:
     """
     payload = {
         "machine_fingerprint": _resolve_machine_fingerprint(settings),
-        "opx_host": settings.opx_host,
-        "opx_port": settings.opx_port,
     }
     token = sign_token(
         settings.qpu_id,

@@ -61,14 +61,18 @@ reference out-of-range qubits.
 
 ```python
 class NativeGate(StrEnum):
-    RX = "rx"       # Single-qubit X rotation
-    RY = "ry"       # Single-qubit Y rotation
-    RZ = "rz"       # Single-qubit Z rotation
-    CZ = "cz"       # Two-qubit controlled-Z
-    ISWAP = "iswap" # Two-qubit iSWAP
-    CP = "cp"       # Two-qubit controlled-phase
-    RXX = "rxx"     # Two-qubit XX rotation
-    ID = "id"       # Identity (single-qubit, 1 param)
+    RX = "rx"               # Single-qubit X rotation
+    RY = "ry"               # Single-qubit Y rotation
+    RZ = "rz"               # Single-qubit Z rotation
+    CZ = "cz"               # Two-qubit controlled-Z
+    ISWAP = "iswap"         # Two-qubit iSWAP
+    CP = "cp"               # Two-qubit controlled-phase
+    RXX = "rxx"             # Two-qubit XX rotation
+    ID = "id"               # Identity (single-qubit, 1 param)
+    X90 = "x90"             # Fixed π/2 X rotation (QubiC native)
+    Y_MINUS_90 = "y_minus_90"  # Fixed −π/2 Y rotation (QubiC native)
+    VIRTUAL_Z = "virtual_z" # Virtual Z rotation (QubiC native)
+    CNOT = "cnot"           # Two-qubit CNOT (QubiC native)
 ```
 
 ## Gate Specifications
@@ -83,6 +87,10 @@ class NativeGate(StrEnum):
 | `cp` | 2 | 1 (angle) |
 | `rxx` | 2 | 1 (angle) |
 | `id` | 1 | 1 |
+| `x90` | 1 | 0 |
+| `y_minus_90` | 1 | 0 |
+| `virtual_z` | 1 | 1 (phase) |
+| `cnot` | 2 | 0 |
 
 ## Hardware Targets
 
@@ -92,6 +100,7 @@ Each target defines which gates are legal:
 |---|---|
 | `superconducting_cz` | `rx`, `ry`, `rz`, `cz`, `id` |
 | `superconducting_iswap` | `rx`, `ry`, `rz`, `iswap`, `cp`, `id` |
+| `superconducting_cnot` | `x90`, `y_minus_90`, `virtual_z`, `cnot`, `id` |
 | `trapped_ion` | `rx`, `ry`, `rz`, `rxx`, `id` |
 | `silicon_spin_cz` | `rx`, `ry`, `rz`, `cz`, `id` |
 

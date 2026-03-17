@@ -49,6 +49,10 @@ class NativeGate(StrEnum):
     CP = "cp"
     RXX = "rxx"
     ID = "id"
+    X90 = "x90"
+    Y_MINUS_90 = "y_minus_90"
+    VIRTUAL_Z = "virtual_z"
+    CNOT = "cnot"
 
 
 GATE_SPECS: dict[str, dict[str, int]] = {
@@ -60,11 +64,16 @@ GATE_SPECS: dict[str, dict[str, int]] = {
     "cp": {"qubits": 2, "params": 1},
     "rxx": {"qubits": 2, "params": 1},
     "id": {"qubits": 1, "params": 1},
+    "x90": {"qubits": 1, "params": 0},
+    "y_minus_90": {"qubits": 1, "params": 0},
+    "virtual_z": {"qubits": 1, "params": 1},
+    "cnot": {"qubits": 2, "params": 0},
 }
 
 LEGAL_GATES: dict[str, set[str]] = {
     "superconducting_cz": {"rx", "ry", "rz", "cz", "id"},
     "superconducting_iswap": {"rx", "ry", "rz", "iswap", "cp", "id"},
+    "superconducting_cnot": {"x90", "y_minus_90", "virtual_z", "cnot", "id"},
     "trapped_ion": {"rx", "ry", "rz", "rxx", "id"},
     "silicon_spin_cz": {"rx", "ry", "rz", "cz", "id"},
 }

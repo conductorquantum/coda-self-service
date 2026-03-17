@@ -16,6 +16,7 @@ Coda.
 - Sends JWT-signed webhook results to Coda with retry
 - Drains in-flight work on graceful shutdown
 - Supports pluggable execution backends
+- Auto-detects hardware frameworks from a device configuration file
 
 ## Install
 
@@ -91,6 +92,7 @@ previously persisted config from disk.
 | `CODA_HOST` | `0.0.0.0` | Bind address for the FastAPI server. |
 | `CODA_PORT` | `8080` | Bind port for the FastAPI server. |
 | `CODA_EXECUTOR_FACTORY` | `""` | Import path for a custom executor (see below). |
+| `CODA_DEVICE_CONFIG` | `""` | Path to a YAML device config for framework-based execution (see below). |
 
 Provide either `CODA_SELF_SERVICE_TOKEN` for auto-provisioning, or both
 `CODA_JWT_PRIVATE_KEY` and `CODA_JWT_KEY_ID` for direct JWT startup.
@@ -174,11 +176,41 @@ coda reset
 
 Stop the daemon and VPN, then remove all persisted runtime files.
 
+## Hardware Frameworks
+
+For hardware backends that use a device configuration file (YAML), set
+`CODA_DEVICE_CONFIG` to point at your device config:
+
+```bash
+export CODA_DEVICE_CONFIG="./device.yaml"
+export CODA_SELF_SERVICE_TOKEN="..."
+coda start
+```
+
+The runtime loads the config, auto-detects the appropriate framework
+from the device target (or an explicit `framework` field), validates
+the configuration, and creates the executor automatically.
+
+Example `device.yaml`:
+
+```yaml
+target: superconducting_cz
+num_qubits: 3
+calibration_path: ./calibration.yaml
+opx_host: 192.168.1.100
+```
+
+Third-party frameworks can be installed as Python packages and are
+discovered automatically via `coda.frameworks` entry points.  See
+[`docs/frameworks/`](docs/frameworks/INDEX.md) for full details on
+creating a framework.
+
 ## Custom Executor
 
-When `CODA_EXECUTOR_FACTORY` is unset the runtime uses a built-in
-`NoopExecutor` that returns deterministic all-zeros results, allowing the
-service to boot without hardware integration.
+When neither `CODA_EXECUTOR_FACTORY` nor `CODA_DEVICE_CONFIG` is set,
+the runtime uses a built-in `NoopExecutor` that returns deterministic
+all-zeros results, allowing the service to boot without hardware
+integration.
 
 To connect a real backend, point the variable at a `module:attribute`
 import path:

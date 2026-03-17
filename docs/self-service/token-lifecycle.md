@@ -35,9 +35,6 @@ The token's `config` JSON object stores QPU policy set at creation time:
 | `display_name` | `string` | QPU display name (required). |
 | `native_gate_set` | `string` | Hardware target (required). |
 | `num_qubits` | `int` | Qubit count (required). |
-| `opx_host` | `string` | Default OPX host (can be overridden at connect time). |
-| `opx_port` | `int` | Default OPX port (can be overridden at connect time). |
-| `opx_cluster` | `string` | OPX cluster identifier. |
 | `vpn_required` | `bool` | Whether VPN is mandatory (default: `true`). |
 | `vpn_interface_hint` | `string` | Specific TUN/TAP interface to look for. |
 | `vpn_check_interval_sec` | `int` | Background health check interval (default: `10`). |
@@ -82,7 +79,8 @@ The node receives the self-service token via:
 
 When `Settings.self_service_token` is non-empty, the node calls
 `fetch_self_service_bundle()` which POSTs the token as
-`Authorization: Bearer <token>`.
+`Authorization: Bearer <token>` together with the node's
+`machine_fingerprint`.
 
 After a successful first run, credentials are persisted to disk and the
 token is no longer needed. Subsequent restarts use JWT reconnect

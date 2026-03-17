@@ -42,12 +42,13 @@ PERSISTED_PRIVATE_KEY_PATH = Path(tempfile.gettempdir()) / "coda-private-key"
   "vpn_probe_targets": ["https://app.coda.example/api/internal/qpu/health"],
   "self_service_auto_vpn": true,
   "self_service_vpn_profile_path": "/tmp/coda-self-service.ovpn",
-  "advertised_provider": "coda",
-  "opx_host": "localhost",
-  "opx_port": 80,
   "self_service_machine_fingerprint": "hostname-12345"
 }
 ```
+
+Executor-specific local settings such as `CODA_OPX_HOST` and `CODA_OPX_PORT`
+are not part of the persisted self-service contract; they should be supplied
+explicitly via environment variables when needed.
 
 ## Write Path
 

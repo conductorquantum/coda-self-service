@@ -8,6 +8,7 @@ Comprehensive documentation for the Coda self-service node runtime.
 |---|---|---|
 | [Self-Service & Reconnect](self-service/INDEX.md) | Self-service provisioning, connect protocol, token lifecycle, credential persistence. | `docs/self-service/` |
 | [VPN Management](vpn/INDEX.md) | OpenVPN tunnel lifecycle, health monitoring, cloud VPN infrastructure. | `docs/vpn/` |
+| [Hardware Frameworks](frameworks/INDEX.md) | Pluggable hardware control frameworks, device config, auto-detection. | `docs/frameworks/` |
 | [Job Execution](jobs/INDEX.md) | Redis Streams consumer, NativeGateIR schema, custom execution backends. | `docs/jobs/` |
 | [Webhooks](webhooks/INDEX.md) | Authenticated result delivery, retry logic, payload format. | `docs/webhooks/` |
 | [JWT Authentication](auth/INDEX.md) | RS256 JWT signing and verification, keypair lifecycle. | `docs/auth/` |
@@ -60,6 +61,14 @@ The VPN infrastructure and connect endpoint are introduced in
 src/self_service/
 ├── __init__.py          # Package exports (CodaError, app, create_app)
 ├── errors.py            # Exception hierarchy
+├── frameworks/
+│   ├── __init__.py      # Public API (DeviceConfig, Framework, FrameworkRegistry)
+│   ├── base.py          # DeviceConfig model, Framework protocol
+│   ├── registry.py      # FrameworkRegistry, default_registry(), entry-point discovery
+│   ├── qua/
+│   │   └── __init__.py  # QUAFramework — Quantum Machines OPX (stub)
+│   └── qubic/
+│       └── __init__.py  # QubiCFramework — LBNL QubiC (stub)
 ├── server/
 │   ├── __init__.py      # Re-exports app, create_app
 │   ├── app.py           # FastAPI app, lifespan, health endpoints
@@ -68,7 +77,7 @@ src/self_service/
 │   ├── config.py        # Settings, persisted config, env vars
 │   ├── consumer.py      # Redis Streams consumer
 │   ├── daemon.py        # Background daemon management (start/stop/status)
-│   ├── executor.py      # JobExecutor protocol, NoopExecutor
+│   ├── executor.py      # JobExecutor protocol, NoopExecutor, framework resolution
 │   ├── ir.py            # NativeGateIR schema and validation
 │   └── webhook.py       # Authenticated webhook delivery
 └── vpn/

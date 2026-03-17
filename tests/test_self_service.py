@@ -40,11 +40,14 @@ def _sample_bundle() -> dict[str, object]:
         "jwt_private_key": "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----",
         "jwt_key_id": "cq-node-test-key-001",
         "redis_url": "rediss://default:token@host:6379",
-        "webapp_url": "https://coda.conductorquantum.com",
+        "cloud_base_url": "https://coda.conductorquantum.com",
         "connect_path": "/api/internal/qpu/connect",
         "register_path": "/api/internal/qpu/register",
         "heartbeat_path": "/api/internal/qpu/heartbeat",
         "webhook_path": "/api/internal/qpu/webhook",
+        "stream_key": "qpu:cq-node-test:jobs",
+        "webhook_url": "https://coda.conductorquantum.com/api/internal/qpu/webhook",
+        "connect_id": "connect-123",
         "vpn": {
             "required": True,
             "interface_hint": "utun5",
@@ -87,8 +90,8 @@ class TestFetchSelfServiceBundle:
         assert bundle["qpu_id"] == "cq-node-test"
         request_body = client.post.call_args.kwargs["json"]
         assert "qpu_id" not in request_body
-        assert request_body["opx_host"] == "localhost"
-        assert request_body["opx_port"] == 80
+        assert set(request_body) == {"machine_fingerprint"}
+        assert request_body["machine_fingerprint"]
         assert client.post.call_args.args[0] == settings.connect_url
 
     @pytest.mark.asyncio
@@ -131,6 +134,7 @@ class TestFetchSelfServiceBundle:
             client.post.call_args.kwargs["json"]["machine_fingerprint"]
             == "fingerprint-123"
         )
+        assert set(client.post.call_args.kwargs["json"]) == {"machine_fingerprint"}
 
 
 class TestPostConnectRetry:
@@ -415,6 +419,9 @@ class TestSelfServiceSettings:
         assert persisted["jwt_private_key_path"] == str(key_path)
         assert persisted["connect_path"] == "/api/internal/qpu/connect"
         assert persisted["self_service_machine_fingerprint"]
+        assert "opx_host" not in persisted
+        assert "opx_port" not in persisted
+        assert "advertised_provider" not in persisted
         if os.name != "nt":
             assert config_path.stat().st_mode & 0o777 == 0o600
             assert key_path.stat().st_mode & 0o777 == 0o600

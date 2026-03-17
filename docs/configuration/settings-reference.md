@@ -64,9 +64,10 @@ Complete field reference for the `Settings` class in
 | Field | Type | Default | Env Var | Description |
 |---|---|---|---|---|
 | `executor_factory` | `str` | `""` | `CODA_EXECUTOR_FACTORY` | Import path for custom executor. |
-| `advertised_provider` | `str` | `"coda"` | `CODA_ADVERTISED_PROVIDER` | Provider name for registration. |
-| `opx_host` | `str` | `"localhost"` | `CODA_OPX_HOST` | OPX controller hostname. |
-| `opx_port` | `int` | `80` | `CODA_OPX_PORT` | OPX controller port. |
+| `device_config` | `str` | `""` | `CODA_DEVICE_CONFIG` | Path to a YAML device configuration file for framework-based execution. See [Device Configuration](../frameworks/device-config.md). |
+| `advertised_provider` | `str` | `"coda"` | `CODA_ADVERTISED_PROVIDER` | Legacy local metadata field. Not used by the self-service connect handshake. |
+| `opx_host` | `str` | `"localhost"` | `CODA_OPX_HOST` | Optional local executor setting for an OPX controller hostname. Not sent to the cloud connect endpoint. |
+| `opx_port` | `int` | `80` | `CODA_OPX_PORT` | Optional local executor setting for an OPX controller port. Not sent to the cloud connect endpoint. |
 
 ## Resilience
 

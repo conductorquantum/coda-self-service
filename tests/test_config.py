@@ -111,6 +111,9 @@ class TestSettings:
                     "vpn_probe_targets": [
                         "https://persisted.example.test/api/internal/qpu/health"
                     ],
+                    "advertised_provider": "legacy-provider",
+                    "opx_host": "persisted-opx.example.test",
+                    "opx_port": 1234,
                     "self_service_machine_fingerprint": "persisted-fingerprint",
                 }
             )
@@ -134,6 +137,9 @@ class TestSettings:
         assert settings.redis_url == "rediss://default:token@persisted:6379"
         assert settings.connect_path == "/api/internal/qpu/connect"
         assert settings.self_service_machine_fingerprint == "persisted-fingerprint"
+        assert settings.advertised_provider == "coda"
+        assert settings.opx_host == "localhost"
+        assert settings.opx_port == 80
         assert settings.vpn_probe_targets == [
             "https://persisted.example.test/api/internal/qpu/health"
         ]

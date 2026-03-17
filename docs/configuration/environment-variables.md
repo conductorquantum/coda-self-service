@@ -20,6 +20,7 @@ including type coercion for booleans, integers, and lists.
 | `CODA_HOST` | `0.0.0.0` | Bind address. |
 | `CODA_PORT` | `8080` | Bind port. |
 | `CODA_EXECUTOR_FACTORY` | `""` | Custom executor import path. |
+| `CODA_DEVICE_CONFIG` | `""` | Path to YAML device config for framework-based execution. See [Device Configuration](../frameworks/device-config.md). |
 | `CODA_VPN_REQUIRED` | `true` | Whether VPN is mandatory. |
 | `CODA_ALLOW_DEGRADED_STARTUP` | `false` | Start despite VPN failure. |
 
@@ -45,9 +46,9 @@ including type coercion for booleans, integers, and lists.
 |---|---|---|
 | `CODA_NATIVE_GATE_SET` | `superconducting_cz` | Hardware target. |
 | `CODA_NUM_QUBITS` | `5` | Device qubit count. |
-| `CODA_OPX_HOST` | `localhost` | OPX controller host. |
-| `CODA_OPX_PORT` | `80` | OPX controller port. |
-| `CODA_ADVERTISED_PROVIDER` | `coda` | Provider name. |
+| `CODA_OPX_HOST` | `localhost` | Optional local executor setting for an OPX controller host. Not sent during self-service connect. |
+| `CODA_OPX_PORT` | `80` | Optional local executor setting for an OPX controller port. Not sent during self-service connect. |
+| `CODA_ADVERTISED_PROVIDER` | `coda` | Legacy local metadata field. Not part of the self-service contract. |
 
 ### Auto-Populated (set by self-service)
 

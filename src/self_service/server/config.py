@@ -101,9 +101,6 @@ def load_persisted_runtime_config() -> dict[str, Any]:
         "vpn_probe_targets",
         "self_service_auto_vpn",
         "self_service_vpn_profile_path",
-        "advertised_provider",
-        "opx_host",
-        "opx_port",
         "self_service_machine_fingerprint",
     ):
         if key in data:
@@ -167,6 +164,7 @@ class Settings(BaseSettings):
     shutdown_drain_timeout_sec: int = 30
 
     executor_factory: str = ""
+    device_config: str = ""
     advertised_provider: str = "coda"
 
     opx_host: str = "localhost"
