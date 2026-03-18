@@ -88,33 +88,18 @@ def _generate_bootstrap_token() -> tuple[str, str, str]:
     return raw, token_hash, prefix
 
 
-_TEST_USER_EMAIL = "test@conductorquantum.com"
+_TEST_USER_EMAIL = "test-admin@conductorquantum.com"
 
 
-async def _get_or_create_test_user(supabase_url: str, supabase_key: str) -> str:
-    """Return the UUID of the dedicated smoketest user, creating it if needed."""
-    headers = {
-        "apikey": supabase_key,
-        "Authorization": f"Bearer {supabase_key}",
-        "Content-Type": "application/json",
-    }
+async def _get_test_user_id(supabase_url: str, supabase_key: str) -> str:
+    """Return the UUID of the dedicated smoketest user."""
     async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            f"{supabase_url}/auth/v1/admin/users",
-            headers=headers,
-            json={
-                "email": _TEST_USER_EMAIL,
-                "password": secrets.token_urlsafe(32),
-                "email_confirm": True,
-            },
-        )
-        if resp.status_code == 200 or resp.status_code == 201:
-            return str(resp.json()["id"])
-
-        # User already exists -- look them up.
         resp = await client.get(
             f"{supabase_url}/auth/v1/admin/users",
-            headers=headers,
+            headers={
+                "apikey": supabase_key,
+                "Authorization": f"Bearer {supabase_key}",
+            },
             params={"page": "1", "per_page": "50"},
         )
         resp.raise_for_status()
@@ -124,9 +109,7 @@ async def _get_or_create_test_user(supabase_url: str, supabase_key: str) -> str:
             if user.get("email") == _TEST_USER_EMAIL:
                 return str(user["id"])
 
-        raise AssertionError(
-            f"Failed to create or find smoketest user {_TEST_USER_EMAIL}"
-        )
+    raise AssertionError(f"Smoketest user {_TEST_USER_EMAIL} not found in Supabase")
 
 
 async def _create_bootstrap_token(
@@ -136,7 +119,7 @@ async def _create_bootstrap_token(
 ) -> tuple[str, str]:
     """Insert a bootstrap token via Supabase REST and return ``(raw_token, row_id)``."""
     raw_token, token_hash, token_prefix = _generate_bootstrap_token()
-    owner_id = await _get_or_create_test_user(supabase_url, supabase_key)
+    owner_id = await _get_test_user_id(supabase_url, supabase_key)
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
