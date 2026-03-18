@@ -160,6 +160,7 @@ class Settings(BaseSettings):
         f"{tempfile.gettempdir()}/coda-self-service.ovpn"
     )
 
+    self_service_connect_headers: dict[str, str] = {}
     self_service_connect_retries: int = 3
     shutdown_drain_timeout_sec: int = 30
 

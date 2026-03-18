@@ -3,6 +3,7 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -33,6 +34,9 @@ jobs:
 
       - name: Mypy
         run: uv run mypy src/self_service
+
+      - name: Package build
+        run: uv build
 
       - name: Pytest
         run: uv run pytest --cov --cov-report=term-missing
