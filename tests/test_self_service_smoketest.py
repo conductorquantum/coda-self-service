@@ -337,29 +337,39 @@ async def test_reconnect_preserves_identity(
 
 
 # ---------------------------------------------------------------------------
-# VPN connection tests (require Docker with --cap-add=NET_ADMIN --device /dev/net/tun)
+# VPN connection tests
 # ---------------------------------------------------------------------------
 
 
-def _has_net_admin() -> bool:
-    """Return True if the process can create tun devices (i.e. has NET_ADMIN)."""
+def _can_run_openvpn() -> bool:
+    """Return True if OpenVPN can create tunnel devices on this platform."""
+    import platform
+    import shutil
     import subprocess
 
-    try:
-        result = subprocess.run(
-            ["ip", "tuntap", "add", "mode", "tun", "dev", "_probe0"],
-            capture_output=True,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            subprocess.run(
-                ["ip", "tuntap", "del", "mode", "tun", "dev", "_probe0"],
+    if not shutil.which("openvpn"):
+        return False
+
+    system = platform.system()
+    if system == "Darwin":
+        return True
+    if system == "Linux":
+        try:
+            result = subprocess.run(
+                ["ip", "tuntap", "add", "mode", "tun", "dev", "_probe0"],
                 capture_output=True,
                 timeout=5,
             )
-            return True
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
+            if result.returncode == 0:
+                subprocess.run(
+                    ["ip", "tuntap", "del", "mode", "tun", "dev", "_probe0"],
+                    capture_output=True,
+                    timeout=5,
+                )
+                return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        return False
     return False
 
 
@@ -371,7 +381,7 @@ async def vpn_settings(smoketest_ctx: dict[str, Any]) -> Settings | None:
     unavailable or VPN is not required for the environment.  The daemon
     is killed after all VPN tests finish.
     """
-    if not _has_net_admin():
+    if not _can_run_openvpn():
         yield None
         return
 
@@ -409,9 +419,7 @@ async def vpn_settings(smoketest_ctx: dict[str, Any]) -> Settings | None:
 async def test_vpn_tunnel_establishes(vpn_settings: Settings | None) -> None:
     """Verify the OpenVPN tunnel interface is up."""
     if vpn_settings is None:
-        pytest.skip(
-            "VPN tunnel not available (needs --cap-add=NET_ADMIN, native Linux Docker)"
-        )
+        pytest.skip("VPN tunnel not available (openvpn not found or tunnel failed)")
 
     iface = detect_tun_interface(vpn_settings.vpn_interface_hint)
     assert iface is not None, "OpenVPN started but no tunnel interface detected"
@@ -424,9 +432,7 @@ async def test_vpn_probe_targets_reachable(
 ) -> None:
     """Verify probe targets are reachable through the VPN tunnel."""
     if vpn_settings is None:
-        pytest.skip(
-            "VPN tunnel not available (needs --cap-add=NET_ADMIN, native Linux Docker)"
-        )
+        pytest.skip("VPN tunnel not available (openvpn not found or tunnel failed)")
 
     probe_targets = (
         smoketest_ctx["bootstrap_bundle"].get("vpn", {}).get("probe_targets", [])
