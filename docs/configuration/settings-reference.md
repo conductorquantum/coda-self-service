@@ -54,6 +54,7 @@ Complete field reference for the `Settings` class in
 | Field | Type | Default | Env Var | Description |
 |---|---|---|---|---|
 | `self_service_timeout_sec` | `int` | `15` | `CODA_SELF_SERVICE_TIMEOUT_SEC` | HTTP timeout for connect requests. |
+| `self_service_connect_headers` | `dict[str, str]` | `{}` | `CODA_SELF_SERVICE_CONNECT_HEADERS` | Extra headers for connect requests (e.g. deployment protection bypass). |
 | `self_service_connect_retries` | `int` | `3` | `CODA_SELF_SERVICE_CONNECT_RETRIES` | Max connect attempts. |
 | `self_service_machine_fingerprint` | `str` | `""` | `CODA_SELF_SERVICE_MACHINE_FINGERPRINT` | Explicit machine fingerprint (auto-generated if empty). |
 | `self_service_auto_vpn` | `bool` | `True` | `CODA_SELF_SERVICE_AUTO_VPN` | Auto-start OpenVPN from profile. |

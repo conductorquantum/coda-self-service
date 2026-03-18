@@ -44,6 +44,10 @@ packages = ["src/self_service"]
 addopts = "-ra --strict-markers --strict-config"
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "e2e: opt-in live tests against Coda infrastructure",
+    "smoketest: deployment smoketest against a live Coda environment",
+]
 
 [tool.coverage.run]
 source = ["src/self_service"]

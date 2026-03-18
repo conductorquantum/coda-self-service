@@ -277,7 +277,24 @@ Run the full quality check suite:
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src/self_service
+uv build
 uv run pytest --cov --cov-report=term-missing
+```
+
+Run the opt-in live smoke tests against
+`https://coda.conductorquantum.com`:
+
+```bash
+export CODA_RUN_E2E=1
+export CODA_E2E_SELF_SERVICE_TOKEN=<self-service-token>
+uv run pytest -m e2e
+```
+
+To include the live VPN tunnel check as well:
+
+```bash
+export CODA_RUN_VPN_E2E=1
+uv run pytest -m e2e
 ```
 
 Install pre-commit hooks (runs ruff format and lint on every commit):

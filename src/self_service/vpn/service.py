@@ -328,10 +328,14 @@ async def _post_connect(
             async with httpx.AsyncClient(
                 timeout=settings.self_service_timeout_sec
             ) as client:
+                headers = {
+                    "Authorization": auth_header,
+                    **settings.self_service_connect_headers,
+                }
                 response = await client.post(
                     settings.connect_url,
                     json=payload,
-                    headers={"Authorization": auth_header},
+                    headers=headers,
                 )
                 response.raise_for_status()
                 return cast(dict[str, Any], response.json())

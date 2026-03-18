@@ -46,6 +46,7 @@ including type coercion for booleans, integers, and lists.
 |---|---|---|
 | `CODA_NATIVE_GATE_SET` | `superconducting_cz` | Hardware target. |
 | `CODA_NUM_QUBITS` | `5` | Device qubit count. |
+| `CODA_SELF_SERVICE_CONNECT_HEADERS` | `{}` | Extra headers for connect requests (JSON object). Used for deployment protection bypass. |
 | `CODA_OPX_HOST` | `localhost` | Optional local executor setting for an OPX controller host. Not sent during self-service connect. |
 | `CODA_OPX_PORT` | `80` | Optional local executor setting for an OPX controller port. Not sent during self-service connect. |
 | `CODA_ADVERTISED_PROVIDER` | `coda` | Legacy local metadata field. Not part of the self-service contract. |

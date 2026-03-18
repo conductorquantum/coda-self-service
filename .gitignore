@@ -8,3 +8,4 @@ htmlcov/
 __pycache__/
 build/
 dist/
+.e2e-credentials.json
