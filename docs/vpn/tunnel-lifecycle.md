@@ -31,6 +31,9 @@ Validated profiles are written to disk by `_write_vpn_profile()`:
 - Permissions: `0600` on POSIX systems.
 - The profile received from the cloud is plaintext (the cloud decodes
   base64 before returning it in the connect response).
+- If the profile does not contain `reneg-sec`, the directive
+  `reneg-sec 0` is appended automatically. This disables TLS
+  renegotiation, preventing connection drops on long-lived tunnels.
 
 ## Daemon Launch
 

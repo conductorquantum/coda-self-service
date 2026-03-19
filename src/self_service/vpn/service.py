@@ -108,6 +108,8 @@ def _validate_vpn_profile(profile: str) -> None:
 def _write_vpn_profile(path: str, profile: str) -> None:
     """Validate and write an OpenVPN profile to *path* with secure permissions."""
     _validate_vpn_profile(profile)
+    if "reneg-sec" not in profile:
+        profile = profile.rstrip() + "\nreneg-sec 0\n"
     profile_path = Path(path)
     profile_path.parent.mkdir(parents=True, exist_ok=True)
     _write_secure_text(profile_path, profile)
