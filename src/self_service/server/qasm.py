@@ -99,7 +99,12 @@ def openqasm_to_ir(
 
     for raw in qasm.strip().splitlines():
         line = raw.strip()
-        if not line or line.startswith("//") or _HEADER_RE.match(line) or _INCLUDE_RE.match(line):
+        if (
+            not line
+            or line.startswith("//")
+            or _HEADER_RE.match(line)
+            or _INCLUDE_RE.match(line)
+        ):
             continue
         if _BIT_DECL_RE.match(line):
             continue
@@ -107,7 +112,9 @@ def openqasm_to_ir(
         m_q = _QUBIT_DECL_RE.match(line)
         if m_q:
             if num_qubits is not None:
-                raise QASMConversionError("Multiple qubit register declarations are not supported")
+                raise QASMConversionError(
+                    "Multiple qubit register declarations are not supported"
+                )
             num_qubits = int(m_q.group(1))
             continue
 
@@ -220,7 +227,9 @@ def _openqasm_gate_to_ir(
     raise QASMConversionError(f"Unsupported target: {target}")
 
 
-def _openqasm_gate_to_ir_cz(name: str, params: list[float], qubits: list[int]) -> GateOp:
+def _openqasm_gate_to_ir_cz(
+    name: str, params: list[float], qubits: list[int]
+) -> GateOp:
     """Map an OpenQASM gate into the ``superconducting_cz`` gate set.
 
     Args:
@@ -249,7 +258,9 @@ def _openqasm_gate_to_ir_cz(name: str, params: list[float], qubits: list[int]) -
     return GateOp(gate=ir_gate, qubits=qubits, params=params if has_params else [])
 
 
-def _openqasm_gate_to_ir_cnot(name: str, params: list[float], qubits: list[int]) -> GateOp:
+def _openqasm_gate_to_ir_cnot(
+    name: str, params: list[float], qubits: list[int]
+) -> GateOp:
     """Map an OpenQASM gate into the ``superconducting_cnot`` gate set.
 
     Args:
