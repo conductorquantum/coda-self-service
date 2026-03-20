@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import uvicorn
 
 from self_service.server import cli
 from self_service.server import config as config_module
@@ -50,8 +52,8 @@ def test_main_runs_server_with_start_subcommand(
     )
     mock_run = MagicMock()
     fake_env: dict[str, str] = {}
-    monkeypatch.setattr(cli.os, "environ", fake_env)
-    monkeypatch.setattr(cli.uvicorn, "run", mock_run)
+    monkeypatch.setattr(os, "environ", fake_env)
+    monkeypatch.setattr(uvicorn, "run", mock_run)
     monkeypatch.setattr("sys.argv", ["coda", "start", "--token", "token-value"])
 
     cli.main()
@@ -145,7 +147,7 @@ def test_doctor_loads_persisted_runtime_without_recursing(
     monkeypatch.delenv("CODA_SELF_SERVICE_TOKEN", raising=False)
     monkeypatch.delenv("CODA_WEBAPP_URL", raising=False)
     monkeypatch.delenv("CODA_REDIS_URL", raising=False)
-    monkeypatch.setattr(cli.shutil, "which", MagicMock(return_value=None))
+    monkeypatch.setattr(shutil, "which", MagicMock(return_value=None))
     monkeypatch.setattr(cli, "detect_tun_interface", MagicMock(return_value=None))
 
     assert cli._doctor() == 0
@@ -199,6 +201,7 @@ def test_start_daemon_mode(
     monkeypatch.setattr(daemon_module, "DAEMON_LOG_PATH", log_path)
     monkeypatch.setattr(cli, "DAEMON_PID_PATH", pid_path)
     monkeypatch.setattr(cli, "DAEMON_LOG_PATH", log_path)
+    mock_start_daemon = MagicMock(return_value=12345)
     monkeypatch.setattr(
         cli,
         "Settings",
@@ -212,7 +215,7 @@ def test_start_daemon_mode(
         ),
     )
     monkeypatch.setattr(cli, "is_daemon_running", MagicMock(return_value=False))
-    monkeypatch.setattr(cli, "start_daemon", MagicMock(return_value=12345))
+    monkeypatch.setattr(cli, "start_daemon", mock_start_daemon)
     monkeypatch.setattr("sys.argv", ["coda", "start", "--daemon"])
 
     cli.main()
@@ -220,7 +223,7 @@ def test_start_daemon_mode(
     output = capsys.readouterr().out
     assert "C O D A  ·  D A E M O N" in output
     assert "Started daemon (PID 12345)" in output
-    cli.start_daemon.assert_called_once_with(
+    mock_start_daemon.assert_called_once_with(
         host="127.0.0.1",
         port=9000,
         token="test-token",
@@ -339,7 +342,8 @@ def test_reset_stops_daemon(
     monkeypatch.setattr(cli, "DAEMON_LOG_PATH", daemon_log_path)
     monkeypatch.setattr(cli, "OPENVPN_PID_PATH", tmp_path / "openvpn.pid")
     monkeypatch.setattr(cli, "OPENVPN_LOG_PATH", tmp_path / "openvpn.log")
-    monkeypatch.setattr(cli, "stop_daemon", MagicMock(return_value=True))
+    mock_stop_daemon = MagicMock(return_value=True)
+    monkeypatch.setattr(cli, "stop_daemon", mock_stop_daemon)
     monkeypatch.setattr(cli, "kill_openvpn_daemon", MagicMock(return_value=False))
     monkeypatch.setattr("sys.argv", ["coda", "reset"])
 
@@ -349,4 +353,4 @@ def test_reset_stops_daemon(
     assert exc_info.value.code == 0
     output = capsys.readouterr().out
     assert "Stopped Coda daemon" in output
-    cli.stop_daemon.assert_called_once()
+    mock_stop_daemon.assert_called_once()

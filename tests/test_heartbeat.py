@@ -149,7 +149,7 @@ def test_run_loop_sends_and_stops(_mock_sign: MagicMock) -> None:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
-        return mock_http.post.call_count
+        return int(mock_http.post.call_count)
 
     call_count = asyncio.run(_run_briefly())
     assert call_count >= 1

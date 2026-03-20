@@ -1,9 +1,11 @@
 """Tests for the Redis stream consumer."""
 
 import asyncio
+from typing import cast
 from unittest.mock import AsyncMock
 
 import pytest
+import redis.asyncio as aioredis
 
 from self_service.server.consumer import RedisConsumer
 from self_service.server.executor import ExecutionResult
@@ -91,7 +93,7 @@ def consumer(
     mock_redis: MockRedis, mock_runner: AsyncMock, mock_webhook: AsyncMock
 ) -> RedisConsumer:
     return RedisConsumer(
-        redis=mock_redis,
+        redis=cast(aioredis.Redis, mock_redis),
         runner=mock_runner,
         webhook=mock_webhook,
         qpu_id="test-node",
@@ -279,7 +281,7 @@ class TestRecoverPending:
         redis = _MockRedisWithPending(pending_fields)
 
         consumer = RedisConsumer(
-            redis=redis,
+            redis=cast(aioredis.Redis, redis),
             runner=mock_runner,
             webhook=mock_webhook,
             qpu_id="test-node",

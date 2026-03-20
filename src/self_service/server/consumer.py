@@ -22,7 +22,7 @@ import asyncio
 import inspect
 import logging
 import time
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, TypeVar, cast
 
@@ -94,7 +94,7 @@ class RedisConsumer:
         self.redis_healthy = True
 
     @staticmethod
-    def _decode_fields(fields: dict) -> dict[str, str]:
+    def _decode_fields(fields: Mapping[object, object]) -> dict[str, str]:
         """Normalise byte keys/values returned when *decode_responses* is off."""
         return {
             (k.decode() if isinstance(k, bytes) else str(k)): (
@@ -249,7 +249,9 @@ class RedisConsumer:
             )
             return False
 
-    async def _process_message(self, message_id: str, fields: dict) -> None:
+    async def _process_message(
+        self, message_id: str, fields: Mapping[object, object]
+    ) -> None:
         """Deserialize, execute, and report a single job from the stream.
 
         Skips jobs already marked as completed.  On success, sends a
@@ -258,24 +260,29 @@ class RedisConsumer:
         Redis connection errors during status updates are logged but do
         not prevent webhook delivery.
         """
-        fields = self._decode_fields(fields)
+        decoded_fields = self._decode_fields(fields)
         try:
-            job_id = fields["job_id"]
-            callback_url = fields["callback_url"]
+            job_id = decoded_fields["job_id"]
+            callback_url = decoded_fields["callback_url"]
         except KeyError as exc:
             logger.error(
                 "Malformed stream message %s (missing %s), skipping. Keys: %s",
                 message_id,
                 exc,
-                sorted(fields.keys()),
+                sorted(decoded_fields.keys()),
             )
             await self._safe_xack(message_id)
             return
 
-        status = await _await_if_needed(
+        status_raw = await _await_if_needed(
             self._redis.hget(f"qpu:job:{job_id}:status", "state")
         )
-        if status in ("completed", b"completed"):
+        status = (
+            status_raw.decode()
+            if isinstance(status_raw, bytes)
+            else str(status_raw) if status_raw is not None else None
+        )
+        if status == "completed":
             await self._safe_xack(message_id)
             return
 
@@ -292,8 +299,8 @@ class RedisConsumer:
         )
 
         try:
-            ir = NativeGateIR.from_json(fields["ir_json"])
-            shots = int(fields["shots"])
+            ir = NativeGateIR.from_json(decoded_fields["ir_json"])
+            shots = int(decoded_fields["shots"])
             result = await self._runner.run(ir, shots)
 
             await self._safe_hset(

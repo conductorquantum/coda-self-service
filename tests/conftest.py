@@ -6,6 +6,7 @@ import importlib
 import os
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -47,7 +48,9 @@ def _force_kill_pid(pid: int) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _cleanup_daemon_processes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def _cleanup_daemon_processes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Iterator[None]:
     """Forcefully stop any daemon processes after each test."""
     pid_path = tmp_path / "daemon.pid"
     log_path = tmp_path / "daemon.log"
