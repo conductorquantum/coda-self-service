@@ -197,7 +197,7 @@ class Settings(BaseSettings):
             default_path = Path("site/device.yaml")
             if default_path.exists():
                 logger.info("Using default device config: %s", default_path)
-                self.device_config = str(default_path)
+                self.device_config = default_path.as_posix()
         return self
 
     @model_validator(mode="after")
