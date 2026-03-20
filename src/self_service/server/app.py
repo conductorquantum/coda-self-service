@@ -81,6 +81,14 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
             settings.redis_url, decode_responses=True
         )
         runner = executor or load_executor(settings)
+
+        device_spec = getattr(runner, "device", None)
+        connectivity: list[list[int]] | None = (
+            [list(e) for e in device_spec.logical_edges]
+            if device_spec is not None
+            else None
+        )
+
         webhook = WebhookClient(
             qpu_id=settings.qpu_id,
             jwt_private_key=settings.jwt_private_key,
@@ -100,6 +108,7 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
             jwt_key_id=settings.jwt_key_id,
             consumer=consumer,
             interval=settings.heartbeat_interval_sec,
+            connectivity=connectivity,
         )
 
         watch_task = asyncio.create_task(guard.watch(_on_vpn_state_change))

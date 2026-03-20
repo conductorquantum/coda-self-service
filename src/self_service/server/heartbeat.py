@@ -41,6 +41,9 @@ class HeartbeatClient:
         jwt_key_id: ``kid`` header value for the JWT.
         consumer: The Redis consumer whose readiness state is reported.
         interval: Seconds between heartbeat POSTs.
+        connectivity: Undirected qubit-topology edge list (e.g.
+            ``[[0, 1], [1, 2]]``).  Sent with every heartbeat so the
+            cloud compiler can perform topology-aware routing.
     """
 
     def __init__(
@@ -51,6 +54,7 @@ class HeartbeatClient:
         jwt_key_id: str,
         consumer: RedisConsumer,
         interval: int = _DEFAULT_INTERVAL,
+        connectivity: list[list[int]] | None = None,
     ) -> None:
         self._url = heartbeat_url
         self._qpu_id = qpu_id
@@ -58,6 +62,7 @@ class HeartbeatClient:
         self._jwt_key_id = jwt_key_id
         self._consumer = consumer
         self._interval = interval
+        self._connectivity = connectivity
         self._running = False
         self._client = httpx.AsyncClient(timeout=_HTTP_TIMEOUT)
 
@@ -66,10 +71,11 @@ class HeartbeatClient:
         token = sign_token(
             self._qpu_id, self._jwt_private_key, key_id=self._jwt_key_id
         )
-        body = {
+        body: dict[str, object] = {
             "current_job": self._consumer.current_job_id,
             "last_job_at": self._consumer.last_job_at,
             "redis_healthy": self._consumer.redis_healthy,
+            "connectivity": self._connectivity,
         }
         response = await self._client.post(
             self._url,
