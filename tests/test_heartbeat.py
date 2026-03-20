@@ -1,6 +1,7 @@
 """Tests for the periodic heartbeat reporter."""
 
 import asyncio
+import contextlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -146,10 +147,8 @@ def test_run_loop_sends_and_stops(_mock_sign: MagicMock) -> None:
         await asyncio.sleep(0.05)
         client.stop()
         task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
         return mock_http.post.call_count
 
     call_count = asyncio.run(_run_briefly())
@@ -179,10 +178,8 @@ def test_send_failure_does_not_crash_loop(_mock_sign: MagicMock) -> None:
         await asyncio.sleep(0.05)
         client.stop()
         task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
 
     asyncio.run(_run_briefly())
     assert mock_http.post.call_count >= 1
