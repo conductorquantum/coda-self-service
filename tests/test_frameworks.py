@@ -38,7 +38,9 @@ class TestExplicitFactory:
 
         fake_discovered = ["some_other.executor_factory:create_executor"]
         with patch.object(
-            executor_module, "_discover_executor_factories", return_value=fake_discovered
+            executor_module,
+            "_discover_executor_factories",
+            return_value=fake_discovered,
         ):
             from self_service.server.config import Settings
 

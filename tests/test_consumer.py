@@ -199,7 +199,6 @@ class TestConsumer:
         assert consumer._idle_event.is_set()
         assert consumer.current_job_id is None
 
-
     def test_processes_job_with_byte_keys(
         self,
         consumer: RedisConsumer,

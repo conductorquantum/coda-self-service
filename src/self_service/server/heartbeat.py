@@ -68,9 +68,7 @@ class HeartbeatClient:
 
     async def _send(self) -> None:
         """POST a single heartbeat with current node status."""
-        token = sign_token(
-            self._qpu_id, self._jwt_private_key, key_id=self._jwt_key_id
-        )
+        token = sign_token(self._qpu_id, self._jwt_private_key, key_id=self._jwt_key_id)
         body: dict[str, object] = {
             "current_job": self._consumer.current_job_id,
             "last_job_at": self._consumer.last_job_at,

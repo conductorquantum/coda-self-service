@@ -104,16 +104,12 @@ def _instantiate_factory(import_path: str, settings: Settings) -> JobExecutor:
         return cast(JobExecutor, target)
 
     if not callable(target):
-        raise ExecutorError(
-            f"Executor target {import_path!r} is not callable"
-        )
+        raise ExecutorError(f"Executor target {import_path!r} is not callable")
 
     parameters = inspect.signature(target).parameters
     executor = target(settings) if parameters else target()
     if not hasattr(executor, "run"):
-        raise ExecutorError(
-            f"Executor factory {import_path!r} did not return a runner"
-        )
+        raise ExecutorError(f"Executor factory {import_path!r} did not return a runner")
     return cast(JobExecutor, executor)
 
 
@@ -190,7 +186,6 @@ def load_executor(settings: Settings) -> JobExecutor:
         return NoopExecutor()
 
     logger.warning(
-        "No executor configured (set CODA_EXECUTOR_FACTORY); "
-        "using NoopExecutor"
+        "No executor configured (set CODA_EXECUTOR_FACTORY); using NoopExecutor"
     )
     return NoopExecutor()
