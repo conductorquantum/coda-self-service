@@ -137,7 +137,6 @@ def _persist_runtime_config(settings: Settings) -> None:
         "redis_url": settings.redis_url,
         "webapp_url": settings.webapp_url,
         "connect_path": settings.connect_path,
-        "register_path": settings.register_path,
         "heartbeat_path": settings.heartbeat_path,
         "webhook_path": settings.webhook_path,
         "vpn_required": settings.vpn_required,
@@ -475,10 +474,6 @@ async def apply_self_service_bundle(settings: Settings, bundle: dict[str, Any]) 
     connect_path = bundle.get("connect_path")
     if isinstance(connect_path, str) and connect_path:
         settings.connect_path = connect_path
-
-    register_path = bundle.get("register_path")
-    if isinstance(register_path, str) and register_path:
-        settings.register_path = register_path
 
     heartbeat_path = bundle.get("heartbeat_path")
     if isinstance(heartbeat_path, str) and heartbeat_path:

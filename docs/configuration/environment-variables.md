@@ -24,6 +24,12 @@ including type coercion for booleans, integers, and lists.
 | `CODA_VPN_REQUIRED` | `true` | Whether VPN is mandatory. |
 | `CODA_ALLOW_DEGRADED_STARTUP` | `false` | Start despite VPN failure. |
 
+### Heartbeat
+
+| Variable | Default | Description |
+|---|---|---|
+| `CODA_HEARTBEAT_INTERVAL_SEC` | `30` | Seconds between heartbeat POSTs to the Coda cloud. The heartbeat keeps the QPU showing as "online"; missing ~3 consecutive heartbeats causes the cloud to mark it offline. |
+
 ### Resilience Tuning
 
 | Variable | Default | Description |
@@ -61,8 +67,7 @@ persisted to disk. They do not need to be set manually:
 - `CODA_WEBAPP_URL`
 - `CODA_JWT_PRIVATE_KEY`
 - `CODA_JWT_KEY_ID`
-- `CODA_CONNECT_PATH`, `CODA_REGISTER_PATH`, `CODA_HEARTBEAT_PATH`,
-  `CODA_WEBHOOK_PATH`
+- `CODA_CONNECT_PATH`, `CODA_HEARTBEAT_PATH`, `CODA_WEBHOOK_PATH`
 - `CODA_VPN_PROBE_TARGETS`
 - `CODA_SELF_SERVICE_MACHINE_FINGERPRINT`
 

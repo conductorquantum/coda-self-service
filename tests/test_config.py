@@ -37,9 +37,6 @@ class TestSettings:
             settings.callback_url == f"{settings.webapp_url}/api/internal/qpu/webhook"
         )
         assert settings.connect_url == f"{settings.webapp_url}/api/internal/qpu/connect"
-        assert (
-            settings.register_url == f"{settings.webapp_url}/api/internal/qpu/register"
-        )
         assert settings.vpn_probe_urls == [
             f"{settings.webapp_url}/api/internal/qpu/connect",
             f"{settings.webapp_url}/api/internal/qpu/heartbeat",
@@ -102,7 +99,6 @@ class TestSettings:
                     "redis_url": "rediss://default:token@persisted:6379",
                     "webapp_url": "https://persisted.example.test",
                     "connect_path": "/api/internal/qpu/connect",
-                    "register_path": "/api/internal/qpu/register",
                     "heartbeat_path": "/api/internal/qpu/heartbeat",
                     "webhook_path": "/api/internal/qpu/webhook",
                     "vpn_required": True,

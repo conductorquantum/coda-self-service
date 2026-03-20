@@ -12,6 +12,7 @@ Coda.
 - Provisions a node from a one-time self-service token
 - Reconnects on restart with persisted JWT credentials
 - Verifies and continuously monitors VPN connectivity
+- Sends periodic heartbeats to keep QPU status "online"
 - Consumes jobs from Redis Streams with crash recovery
 - Sends JWT-signed webhook results to Coda with retry
 - Drains in-flight work on graceful shutdown
@@ -56,7 +57,8 @@ On startup the runtime:
 2. Connects to Coda using either a self-service token or persisted JWT
    credentials (with exponential-backoff retry on transient failures).
 3. Brings up or validates VPN connectivity when required.
-4. Starts the FastAPI service and a background Redis Streams consumer.
+4. Starts the FastAPI service, a background Redis Streams consumer, and
+   a heartbeat loop that periodically POSTs node status to the cloud.
 5. Dispatches jobs to the configured executor and posts signed results
    back via webhook.
 

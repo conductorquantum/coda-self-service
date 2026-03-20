@@ -1,9 +1,9 @@
 """FastAPI application for the standalone Coda-connected node server.
 
 The application is constructed via :func:`create_app`, which wires up a
-lifespan that boots the VPN guard, Redis consumer, and webhook client.
-A module-level ``app`` instance is provided for ``uvicorn`` import-string
-references (``self_service.server.app:app``).
+lifespan that boots the VPN guard, Redis consumer, heartbeat reporter,
+and webhook client.  A module-level ``app`` instance is provided for
+``uvicorn`` import-string references (``self_service.server.app:app``).
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from fastapi.responses import JSONResponse
 from self_service.server.config import Settings
 from self_service.server.consumer import RedisConsumer
 from self_service.server.executor import JobExecutor, load_executor
+from self_service.server.heartbeat import HeartbeatClient
 from self_service.server.webhook import WebhookClient
 from self_service.vpn import (
     ServiceState,
@@ -90,13 +91,24 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
             qpu_id=settings.qpu_id,
         )
 
+        heartbeat = HeartbeatClient(
+            heartbeat_url=settings.heartbeat_url,
+            qpu_id=settings.qpu_id,
+            jwt_private_key=settings.jwt_private_key,
+            jwt_key_id=settings.jwt_key_id,
+            consumer=consumer,
+            interval=settings.heartbeat_interval_sec,
+        )
+
         watch_task = asyncio.create_task(guard.watch(_on_vpn_state_change))
         consumer_task = asyncio.create_task(consumer.consume_loop())
+        heartbeat_task = asyncio.create_task(heartbeat.run())
 
         app.state.settings = settings
         app.state.guard = guard
         app.state.consumer = consumer
         app.state.webhook = webhook
+        app.state.heartbeat = heartbeat
 
         yield
 
@@ -104,6 +116,11 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
         watch_task.cancel()
         with suppress(asyncio.CancelledError):
             await watch_task
+
+        await heartbeat.close()
+        heartbeat_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await heartbeat_task
 
         drained = await consumer.drain(timeout=settings.shutdown_drain_timeout_sec)
         if not drained:

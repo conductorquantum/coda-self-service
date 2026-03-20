@@ -128,3 +128,17 @@ VPNGuard(
 to `[connect_url, heartbeat_url]` when no explicit probe targets are
 configured. During self-service, the cloud sets `probe_targets` to
 `["{cloud_base_url}/api/internal/qpu/health"]`.
+
+## VPN Health vs QPU Heartbeat
+
+These are two separate mechanisms:
+
+| Concern | Component | Method | Endpoint | Authenticated | Side Effect |
+|---|---|---|---|---|---|
+| VPN connectivity | `VPNGuard` | `HEAD` | `/api/internal/qpu/health` | No | None |
+| QPU liveness | `HeartbeatClient` | `POST` | `/api/internal/qpu/heartbeat` | Yes (JWT) | Updates QPU status to "online" |
+
+The VPN guard verifies the network path is working. The heartbeat
+client keeps the QPU device record marked as "online" in the Coda
+database. If heartbeats stop (e.g. node crash), a server-side cron
+job marks the QPU offline after ~90 seconds.
