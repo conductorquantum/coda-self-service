@@ -73,7 +73,16 @@ GATE_SPECS: dict[str, dict[str, int]] = {
 LEGAL_GATES: dict[str, set[str]] = {
     "superconducting_cz": {"rx", "ry", "rz", "cz", "id"},
     "superconducting_iswap": {"rx", "ry", "rz", "iswap", "cp", "id"},
-    "superconducting_cnot": {"rx", "ry", "rz", "x90", "y_minus_90", "virtual_z", "cnot", "id"},
+    "superconducting_cnot": {
+        "rx",
+        "ry",
+        "rz",
+        "x90",
+        "y_minus_90",
+        "virtual_z",
+        "cnot",
+        "id",
+    },
     "trapped_ion": {"rx", "ry", "rz", "rxx", "id"},
     "silicon_spin_cz": {"rx", "ry", "rz", "cz", "id"},
 }
