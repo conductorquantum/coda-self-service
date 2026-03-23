@@ -54,7 +54,14 @@ If any probe fails and VPN is required, returns `VPN_UNAVAILABLE`.
 ### VPN Not Required
 
 When `vpn_required` is `False`, all three stages pass regardless of
-actual results. This allows local development without a VPN tunnel.
+actual results. This applies in two situations:
+
+- **HTTPS connection mode**: The cloud sets `vpn.required = false` in
+  the connect response when the token was created with
+  `connection_mode: "https"`. The node operates without any VPN
+  infrastructure.
+- **Local development**: Operators can set `CODA_VPN_REQUIRED=false`
+  manually to skip VPN checks during development.
 
 ## VPNStatus Result
 

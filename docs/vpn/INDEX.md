@@ -10,6 +10,13 @@ QPU node and the Coda cloud. It handles three concerns:
 3. **Lifecycle management** — starting, stopping, and restarting the
    OpenVPN daemon across node restarts.
 
+> **Note:** The VPN subsystem is only active when the token's
+> `connection_mode` is `"vpn"` (the default). When `connection_mode` is
+> `"https"`, the cloud sets `vpn.required = false` and omits the VPN
+> profile. The node skips OpenVPN entirely and VPNGuard passes preflight
+> unconditionally. See [Connect Protocol](../self-service/connect-protocol.md)
+> for details on connection modes.
+
 ## Topics
 
 | Document | Summary |

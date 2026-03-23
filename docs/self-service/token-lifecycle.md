@@ -35,7 +35,7 @@ The token's `config` JSON object stores QPU policy set at creation time:
 | `display_name` | `string` | QPU display name (required). |
 | `native_gate_set` | `string` | Hardware target (required). |
 | `num_qubits` | `int` | Qubit count (required). |
-| `vpn_required` | `bool` | Whether VPN is mandatory (default: `true`). |
+| `connection_mode` | `"vpn" \| "https"` | Network transport mode (default: `"vpn"`). When `"https"`, VPN provisioning is skipped and the node connects directly over TLS. |
 | `vpn_interface_hint` | `string` | Specific TUN/TAP interface to look for. |
 | `vpn_check_interval_sec` | `int` | Background health check interval (default: `10`). |
 

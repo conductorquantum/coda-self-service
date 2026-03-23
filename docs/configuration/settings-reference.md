@@ -41,7 +41,7 @@ Complete field reference for the `Settings` class in
 
 | Field | Type | Default | Env Var | Description |
 |---|---|---|---|---|
-| `vpn_required` | `bool` | `True` | `CODA_VPN_REQUIRED` | Fail preflight without VPN. |
+| `vpn_required` | `bool` | `True` | `CODA_VPN_REQUIRED` | Fail preflight without VPN. Automatically set to `False` by the connect response when the token's `connection_mode` is `"https"`. |
 | `vpn_check_interval_sec` | `int` | `10` | `CODA_VPN_CHECK_INTERVAL_SEC` | Background check interval. |
 | `vpn_probe_targets` | `list[str]` | `[]` | `CODA_VPN_PROBE_TARGETS` | URLs to probe for VPN health. |
 | `vpn_interface_hint` | `str \| None` | `None` | `CODA_VPN_INTERFACE_HINT` | Specific interface to look for. |

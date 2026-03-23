@@ -17,6 +17,11 @@ Comprehensive documentation for the Coda self-service node runtime.
 
 ## Architecture
 
+The node supports two connection modes, configured per-token in the Coda webapp:
+
+- **VPN mode** (default): traffic is routed through an AWS Client VPN tunnel (OpenVPN, mTLS).
+- **HTTPS mode**: traffic flows directly over the public internet using TLS. No VPN software is required.
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        Coda Cloud                           │
@@ -25,7 +30,8 @@ Comprehensive documentation for the Coda self-service node runtime.
 │  │ (self-svc)   │  │  (results)   │  │  qpu:{id}:jobs   │  │
 │  └──────┬───────┘  └──────▲───────┘  └────────┬─────────┘  │
 │         │                 │                    │            │
-│         │    AWS Client VPN (mTLS)             │            │
+│         │  VPN mode: AWS Client VPN (mTLS)     │            │
+│         │  HTTPS mode: direct TLS              │            │
 └─────────┼─────────────────┼────────────────────┼────────────┘
           │                 │                    │
     ┌─────▼─────────────────┼────────────────────▼────────┐
@@ -35,10 +41,10 @@ Comprehensive documentation for the Coda self-service node runtime.
     │  │ Settings     │  │ VPNGuard     │  │ OpenVPN    │  │
     │  │ (config.py)  │  │ (guard.py)   │  │ (daemon)   │  │
     │  └──────┬───────┘  └──────┬───────┘  └────────────┘  │
-    │         │                 │                           │
+    │         │                 │           (VPN mode only) │
     │  ┌──────▼───────┐  ┌─────▼────────┐                  │
-│  │ Provisioner  │  │ /health      │                  │
-│  │ (service.py) │  │ /ready       │                  │
+    │  │ Provisioner  │  │ /health      │                  │
+    │  │ (service.py) │  │ /ready       │                  │
     │  └──────────────┘  └──────────────┘                  │
     │                                                      │
     │  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │
@@ -47,6 +53,11 @@ Comprehensive documentation for the Coda self-service node runtime.
     │  └──────────────┘  └──────────────┘  └────────────┘  │
     └──────────────────────────────────────────────────────┘
 ```
+
+In HTTPS mode, the OpenVPN daemon is not started and VPNGuard passes
+preflight unconditionally (`vpn_required = false`). All other
+components (Redis consumer, webhook client, heartbeat) function
+identically in both modes.
 
 ## Cloud Repository
 

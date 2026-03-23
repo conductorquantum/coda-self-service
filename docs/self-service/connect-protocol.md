@@ -79,6 +79,7 @@ default 3).
     "probe_targets": ["https://app.coda.example/api/internal/qpu/health"],
     "client_profile_ovpn": "client\ndev tun\n..."
   },
+  "connection_mode": "vpn",
   "issued_at": "2026-03-15T00:00:00.000Z",
   "connect_id": "uuid"
 }
@@ -89,13 +90,26 @@ The runtime currently consumes the identity fields, JWT material, Redis URL,
 `stream_key`, `webhook_url`, and `connect_id` are part of the cloud contract
 but are informational from the node runtime's perspective.
 
-### Key Differences by Mode
+### Key Differences by Auth Mode
 
 | Field | Self-service | Reconnect |
 |---|---|---|
 | `jwt_private_key` | Present (new keypair generated on first run) | Absent (node already has it) |
 | `jwt_key_id` | Present | Present (looked up from DB) |
-| `vpn.client_profile_ovpn` | Freshly provisioned | Freshly provisioned (new cert for this fingerprint) |
+| `vpn.client_profile_ovpn` | Freshly provisioned (VPN mode only) | Freshly provisioned (VPN mode only) |
+
+### Key Differences by Connection Mode
+
+The token's `connection_mode` (`"vpn"` or `"https"`) controls the VPN block in the response:
+
+| Field | VPN mode (default) | HTTPS mode |
+|---|---|---|
+| `vpn.required` | `true` | `false` |
+| `vpn.client_profile_ovpn` | Full OpenVPN profile | `null` |
+| `vpn.probe_targets` | Cloud health endpoint URL | `[]` |
+| `vpn.check_interval_sec` | From token config (default 10) | `null` |
+
+In HTTPS mode, the node skips OpenVPN setup and the VPN guard passes preflight unconditionally since `vpn_required` is `false`. All API traffic, Redis connections, and webhook deliveries flow directly over TLS without a VPN tunnel.
 
 ## Bundle Application
 
@@ -112,6 +126,10 @@ but are informational from the node runtime's perspective.
    - If `self_service_auto_vpn` is enabled and a profile is provided,
      validates it for dangerous directives, writes it to disk, and starts
      an OpenVPN daemon (unless a tunnel is already active).
+   - In HTTPS mode (`vpn.required = false`, `client_profile_ovpn = null`),
+     the VPN steps are skipped entirely — no profile is written, no
+     OpenVPN daemon is started, and `vpn_required` is set to `false` on
+     the settings object.
 4. On failure during bundle application, `kill_openvpn_daemon()` is
    called to clean up a half-started VPN.
 
@@ -140,14 +158,16 @@ last exception as context.
 
 ## Cloud-Side Provisioning Order
 
-The cloud performs these steps atomically during self-service:
+The cloud performs these steps during self-service:
 
-1. Generate RS256 JWT keypair → store public key in `jwt_keys`.
-2. Derive VPN client identity → provision VPN cert → assemble `.ovpn`.
-3. If VPN is required and provisioning fails → delete JWT key → return error.
-4. Redeem self-service token via `prepare_qpu_device_from_bootstrap_token`.
-5. Revoke any previous JWT key for this QPU.
-6. Return the full bundle.
+1. Read `connection_mode` from the token config (default `"vpn"`).
+2. Generate RS256 JWT keypair → store public key in `jwt_keys`.
+3. If VPN mode: derive VPN client identity → provision VPN cert → assemble `.ovpn`.
+4. If VPN mode and provisioning fails → delete JWT key → return error.
+5. If HTTPS mode: skip VPN provisioning entirely.
+6. Redeem self-service token via `prepare_qpu_device_from_bootstrap_token`.
+7. Revoke any previous JWT key for this QPU.
+8. Return the full bundle (with `vpn.required = false` in HTTPS mode).
 
 This ordering ensures a token is never consumed if required VPN
 provisioning fails, and stale JWT keys are cleaned up on failure.

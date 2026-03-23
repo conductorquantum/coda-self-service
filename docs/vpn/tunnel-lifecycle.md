@@ -112,10 +112,12 @@ Silently succeeds if the process is already gone.
 On reconnect (`ensure_persisted_vpn()` in `vpn/service.py`):
 
 1. Checks for a persisted config file.
-2. If `self_service_auto_vpn` is disabled, returns immediately.
-3. If the VPN profile file exists and no tunnel is currently active,
+2. If `vpn_required` is `False` (i.e. HTTPS connection mode), returns
+   immediately — no VPN profile or daemon is needed.
+3. If `self_service_auto_vpn` is disabled, returns immediately.
+4. If the VPN profile file exists and no tunnel is currently active,
    starts the OpenVPN daemon and waits for the interface.
-4. If VPN is required but the profile is missing, raises
+5. If VPN is required but the profile is missing, raises
    `SelfServiceError` telling the operator to re-provision with a new
    token.
 
