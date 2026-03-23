@@ -38,13 +38,28 @@ class TestSettings:
         )
         assert settings.connect_url == f"{settings.webapp_url}/api/internal/qpu/connect"
         assert settings.vpn_probe_urls == [
-            f"{settings.webapp_url}/api/internal/qpu/connect",
-            f"{settings.webapp_url}/api/internal/qpu/heartbeat",
+            f"{settings.webapp_url}/api/internal/qpu/health",
         ]
         assert (
             settings.heartbeat_url
             == f"{settings.webapp_url}/api/internal/qpu/heartbeat"
         )
+
+    def test_vpn_probe_urls_empty_when_vpn_not_required(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("CODA_VPN_REQUIRED", "false")
+        settings = Settings()
+        assert settings.vpn_probe_urls == []
+
+    def test_vpn_probe_urls_uses_explicit_targets(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(
+            "CODA_VPN_PROBE_TARGETS", '["https://example.test/health"]'
+        )
+        settings = Settings()
+        assert settings.vpn_probe_urls == ["https://example.test/health"]
 
     def test_custom_values(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("CODA_QPU_ID", "custom-node")

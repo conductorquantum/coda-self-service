@@ -234,9 +234,17 @@ class Settings(BaseSettings):
 
     @property
     def vpn_probe_urls(self) -> list[str]:
-        """URLs to probe for VPN connectivity, falling back to API endpoints."""
+        """URLs to probe for VPN connectivity.
+
+        Returns explicit targets when configured, the health endpoint as
+        a fallback when VPN is required, or an empty list when VPN is
+        not required (HTTPS mode) to avoid probing endpoints that only
+        accept POST.
+        """
         if self.vpn_probe_targets:
             return list(self.vpn_probe_targets)
-        return [self.connect_url, self.heartbeat_url]
+        if not self.vpn_required:
+            return []
+        return [f"{self.webapp_url}/api/internal/qpu/health"]
 
     model_config = SettingsConfigDict(env_prefix="CODA_", validate_assignment=True)
