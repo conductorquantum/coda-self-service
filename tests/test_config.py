@@ -55,9 +55,7 @@ class TestSettings:
     def test_vpn_probe_urls_uses_explicit_targets(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv(
-            "CODA_VPN_PROBE_TARGETS", '["https://example.test/health"]'
-        )
+        monkeypatch.setenv("CODA_VPN_PROBE_TARGETS", '["https://example.test/health"]')
         settings = Settings()
         assert settings.vpn_probe_urls == ["https://example.test/health"]
 
