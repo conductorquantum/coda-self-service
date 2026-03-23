@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
+from self_service.server.app import _resolve_connectivity
 from self_service.vpn import ServiceState
 
 
@@ -103,3 +104,30 @@ def test_ready_endpoint_redis_unhealthy() -> None:
         body = response.json()
         assert body["ready"] is False
         assert body["redis_healthy"] is False
+
+
+def test_resolve_connectivity_prefers_directed_edges() -> None:
+    device = MagicMock()
+    device.directed_edges = [(1, 0), (2, 1)]
+    device.logical_edges = [(0, 1), (1, 2)]
+
+    assert _resolve_connectivity(device) == [[1, 0], [2, 1]]
+
+
+def test_resolve_connectivity_falls_back_to_logical_edges() -> None:
+    device = MagicMock(spec=["logical_edges"])
+    device.logical_edges = [(0, 1), (1, 2)]
+
+    assert _resolve_connectivity(device) == [[0, 1], [1, 2]]
+
+
+def test_resolve_connectivity_returns_none_without_device() -> None:
+    assert _resolve_connectivity(None) is None
+
+
+def test_resolve_connectivity_falls_back_when_directed_edges_empty() -> None:
+    device = MagicMock()
+    device.directed_edges = []
+    device.logical_edges = [(0, 1), (1, 2)]
+
+    assert _resolve_connectivity(device) == [[0, 1], [1, 2]]

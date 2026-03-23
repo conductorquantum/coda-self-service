@@ -32,6 +32,16 @@ from self_service.vpn import (
 logger = logging.getLogger(__name__)
 
 
+def _resolve_connectivity(device_spec: object | None) -> list[list[int]] | None:
+    """Extract qubit connectivity from a device spec, preferring directed edges."""
+    if device_spec is None:
+        return None
+    directed = getattr(device_spec, "directed_edges", None)
+    if directed:
+        return [list(e) for e in directed]
+    return [list(e) for e in device_spec.logical_edges]  # type: ignore[union-attr]
+
+
 async def _on_vpn_state_change(state: ServiceState) -> None:
     """Log VPN state transitions at WARNING level."""
     logger.warning("VPN state changed: %s", state.value)
@@ -82,13 +92,7 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
         runner = executor or load_executor(settings)
 
         device_spec = getattr(runner, "device", None)
-        connectivity: list[list[int]] | None = None
-        if device_spec is not None:
-            directed = getattr(device_spec, "directed_edges", None)
-            if directed is not None:
-                connectivity = [list(e) for e in directed]
-            else:
-                connectivity = [list(e) for e in device_spec.logical_edges]
+        connectivity = _resolve_connectivity(device_spec)
 
         webhook = WebhookClient(
             qpu_id=settings.qpu_id,
