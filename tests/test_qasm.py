@@ -54,9 +54,7 @@ class TestCZQASMRoundTrip:
         )
         ir = openqasm_to_ir(qasm, target="cz")
         roundtripped = ir_to_openqasm(ir)
-        ir2 = openqasm_to_ir(
-            roundtripped, target="cz", metadata=ir.metadata
-        )
+        ir2 = openqasm_to_ir(roundtripped, target="cz", metadata=ir.metadata)
         assert ir.gates == ir2.gates
         assert ir.measurements == ir2.measurements
         assert ir.num_qubits == ir2.num_qubits
@@ -146,9 +144,7 @@ class TestCNOTQASMRoundTrip:
         )
         ir = openqasm_to_ir(qasm, target="cnot")
         roundtripped = ir_to_openqasm(ir)
-        ir2 = openqasm_to_ir(
-            roundtripped, target="cnot", metadata=ir.metadata
-        )
+        ir2 = openqasm_to_ir(roundtripped, target="cnot", metadata=ir.metadata)
         assert ir.gates == ir2.gates
         assert ir.measurements == ir2.measurements
 

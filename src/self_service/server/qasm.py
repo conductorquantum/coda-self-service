@@ -347,9 +347,7 @@ def _ir_gate_to_openqasm_cz(name: str, params: list[float], qubits_str: str) -> 
         return f"rz({_format_float(params[0])}) {qubits_str};"
     if name in _parameterless:
         return f"{name} {qubits_str};"
-    raise QASMConversionError(
-        f"IR gate '{name}' has no OpenQASM mapping for cz"
-    )
+    raise QASMConversionError(f"IR gate '{name}' has no OpenQASM mapping for cz")
 
 
 def _ir_gate_to_openqasm_cnot(name: str, params: list[float], qubits_str: str) -> str:
@@ -376,6 +374,4 @@ def _ir_gate_to_openqasm_cnot(name: str, params: list[float], qubits_str: str) -
         return f"cx {qubits_str};"
     if name == "id":
         return f"id {qubits_str};"
-    raise QASMConversionError(
-        f"IR gate '{name}' has no OpenQASM mapping for cnot"
-    )
+    raise QASMConversionError(f"IR gate '{name}' has no OpenQASM mapping for cnot")
