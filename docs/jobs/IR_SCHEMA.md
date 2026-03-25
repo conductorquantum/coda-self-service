@@ -10,7 +10,7 @@ reference out-of-range qubits.
 ```json
 {
   "version": "1.0",
-  "target": "superconducting_cz",
+  "target": "cz",
   "num_qubits": 5,
   "gates": [
     {"gate": "rx", "qubits": [0], "params": [1.5708]},
@@ -67,7 +67,6 @@ class NativeGate(StrEnum):
     CZ = "cz"               # Two-qubit controlled-Z
     ISWAP = "iswap"         # Two-qubit iSWAP
     CP = "cp"               # Two-qubit controlled-phase
-    RXX = "rxx"             # Two-qubit XX rotation
     ID = "id"               # Identity (single-qubit, 1 param)
     X90 = "x90"             # Fixed π/2 X rotation
     Y_MINUS_90 = "y_minus_90"  # Fixed −π/2 Y rotation
@@ -85,7 +84,6 @@ class NativeGate(StrEnum):
 | `cz` | 2 | 0 |
 | `iswap` | 2 | 0 |
 | `cp` | 2 | 1 (angle) |
-| `rxx` | 2 | 1 (angle) |
 | `id` | 1 | 1 |
 | `x90` | 1 | 0 |
 | `y_minus_90` | 1 | 0 |
@@ -98,11 +96,9 @@ Each target defines which gates are legal:
 
 | Target | Legal Gates |
 |---|---|
-| `superconducting_cz` | `rx`, `ry`, `rz`, `cz`, `id` |
-| `superconducting_iswap` | `rx`, `ry`, `rz`, `iswap`, `cp`, `id` |
-| `superconducting_cnot` | `x90`, `y_minus_90`, `virtual_z`, `cnot`, `id` |
-| `trapped_ion` | `rx`, `ry`, `rz`, `rxx`, `id` |
-| `silicon_spin_cz` | `rx`, `ry`, `rz`, `cz`, `id` |
+| `cz` | `rx`, `ry`, `rz`, `cz`, `id` |
+| `iswap` | `rx`, `ry`, `rz`, `iswap`, `cp`, `id` |
+| `cnot` | `rx`, `ry`, `rz`, `x90`, `y_minus_90`, `virtual_z`, `cnot`, `id` |
 
 ## Validation
 

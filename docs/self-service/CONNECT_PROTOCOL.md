@@ -61,7 +61,7 @@ default 3).
   "qpu_id": "my-qpu",
   "qpu_display_name": "My QPU",
   "qpu_label": "My QPU",
-  "native_gate_set": "superconducting_cz",
+  "native_gate_set": "cz",
   "num_qubits": 5,
   "jwt_private_key": "-----BEGIN PRIVATE KEY-----\n...",
   "jwt_key_id": "qpu-my-qpu-1710000000000",

@@ -2,7 +2,7 @@
 
 Jobs received from the Coda cloud carry a JSON-serialized circuit in
 this IR format.  The IR is target-aware: each hardware target (e.g.
-``superconducting_cz``, ``trapped_ion``) defines a legal gate set, and
+``cz``, ``cnot``) defines a legal gate set, and
 the validators reject programs that use gates outside that set or
 reference qubits beyond the device's capacity.
 
@@ -10,7 +10,7 @@ Schema (version ``"1.0"``)::
 
     {
       "version": "1.0",
-      "target": "superconducting_cz",
+      "target": "cz",
       "num_qubits": 5,
       "gates": [{"gate": "rx", "qubits": [0], "params": [1.57]}],
       "measurements": [0, 1],
@@ -47,7 +47,6 @@ class NativeGate(StrEnum):
     CZ = "cz"
     ISWAP = "iswap"
     CP = "cp"
-    RXX = "rxx"
     ID = "id"
     X90 = "x90"
     Y_MINUS_90 = "y_minus_90"
@@ -62,7 +61,6 @@ GATE_SPECS: dict[str, dict[str, int]] = {
     "cz": {"qubits": 2, "params": 0},
     "iswap": {"qubits": 2, "params": 0},
     "cp": {"qubits": 2, "params": 1},
-    "rxx": {"qubits": 2, "params": 1},
     "id": {"qubits": 1, "params": 1},
     "x90": {"qubits": 1, "params": 0},
     "y_minus_90": {"qubits": 1, "params": 0},
@@ -71,9 +69,9 @@ GATE_SPECS: dict[str, dict[str, int]] = {
 }
 
 LEGAL_GATES: dict[str, set[str]] = {
-    "superconducting_cz": {"rx", "ry", "rz", "cz", "id"},
-    "superconducting_iswap": {"rx", "ry", "rz", "iswap", "cp", "id"},
-    "superconducting_cnot": {
+    "cz": {"rx", "ry", "rz", "cz", "id"},
+    "iswap": {"rx", "ry", "rz", "iswap", "cp", "id"},
+    "cnot": {
         "rx",
         "ry",
         "rz",
@@ -83,8 +81,6 @@ LEGAL_GATES: dict[str, set[str]] = {
         "cnot",
         "id",
     },
-    "trapped_ion": {"rx", "ry", "rz", "rxx", "id"},
-    "silicon_spin_cz": {"rx", "ry", "rz", "cz", "id"},
 }
 
 

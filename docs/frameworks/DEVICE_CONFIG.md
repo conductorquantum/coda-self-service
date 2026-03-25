@@ -22,7 +22,7 @@ info message.  Explicit `CODA_DEVICE_CONFIG` always takes precedence.
 ### Sample device config (`site/device.yaml`)
 
 ```yaml
-target: superconducting_cz
+target: cz
 num_qubits: 5
 host: 192.168.1.120
 port: 9095

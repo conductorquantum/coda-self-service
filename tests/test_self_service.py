@@ -35,7 +35,7 @@ def _sample_bundle() -> dict[str, object]:
     return {
         "qpu_id": "cq-node-test",
         "qpu_display_name": "Test Node",
-        "native_gate_set": "superconducting_cz",
+        "native_gate_set": "cz",
         "num_qubits": 7,
         "jwt_private_key": "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----",
         "jwt_key_id": "cq-node-test-key-001",

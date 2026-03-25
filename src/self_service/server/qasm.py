@@ -5,7 +5,7 @@ round-trip circuits through text and keep validating that ``NativeGateIR``
 remains a valid, stable IR representation going forward. They are not meant
 to define a broader OpenQASM compatibility surface.
 
-Supports the ``superconducting_cz`` and ``superconducting_cnot`` IR targets.
+Supports the ``cz`` and ``cnot`` IR targets for the OpenQASM round-trip subset.
 Only the QASM subset needed by these targets is handled; symbolic parameter
 expressions (for example ``pi/2``) are not supported, so callers must use
 numeric literals.
@@ -220,9 +220,9 @@ def _openqasm_gate_to_ir(
     Raises:
         QASMConversionError: If the target is unsupported.
     """
-    if target == "superconducting_cz":
+    if target == "cz":
         return _openqasm_gate_to_ir_cz(name, params, qubits)
-    if target == "superconducting_cnot":
+    if target == "cnot":
         return _openqasm_gate_to_ir_cnot(name, params, qubits)
     raise QASMConversionError(f"Unsupported target: {target}")
 
@@ -230,7 +230,7 @@ def _openqasm_gate_to_ir(
 def _openqasm_gate_to_ir_cz(
     name: str, params: list[float], qubits: list[int]
 ) -> GateOp:
-    """Map an OpenQASM gate into the ``superconducting_cz`` gate set.
+    """Map an OpenQASM gate into the ``cz`` gate set.
 
     Args:
         name: Parsed OpenQASM gate name.
@@ -251,7 +251,7 @@ def _openqasm_gate_to_ir_cz(
         "id": (NativeGate.ID, False),
     }
     if name not in _map:
-        raise QASMConversionError(f"Gate '{name}' not supported for superconducting_cz")
+        raise QASMConversionError(f"Gate '{name}' not supported for cz")
     ir_gate, has_params = _map[name]
     if ir_gate == NativeGate.ID:
         return GateOp(gate=ir_gate, qubits=qubits, params=[0.0])
@@ -261,7 +261,7 @@ def _openqasm_gate_to_ir_cz(
 def _openqasm_gate_to_ir_cnot(
     name: str, params: list[float], qubits: list[int]
 ) -> GateOp:
-    """Map an OpenQASM gate into the ``superconducting_cnot`` gate set.
+    """Map an OpenQASM gate into the ``cnot`` gate set.
 
     Args:
         name: Parsed QASM gate name.
@@ -290,11 +290,11 @@ def _openqasm_gate_to_ir_cnot(
         if math.isclose(params[0], -_HALF_PI, rel_tol=1e-12, abs_tol=1e-12):
             return GateOp(gate=NativeGate.Y_MINUS_90, qubits=qubits, params=[])
         raise QASMConversionError(
-            f"ry({params[0]}) not representable in superconducting_cnot "
+            f"ry({params[0]}) not representable in cnot "
             f"(only ry(-π/2) maps to y_minus_90)"
         )
 
-    raise QASMConversionError(f"Gate '{name}' not supported for superconducting_cnot")
+    raise QASMConversionError(f"Gate '{name}' not supported for cnot")
 
 
 def _ir_gate_to_openqasm(op: GateOp, target: str) -> str:
@@ -313,15 +313,15 @@ def _ir_gate_to_openqasm(op: GateOp, target: str) -> str:
     name = op.gate.value
     qubits_str = ", ".join(f"q[{q}]" for q in op.qubits)
 
-    if target == "superconducting_cz":
+    if target == "cz":
         return _ir_gate_to_openqasm_cz(name, op.params, qubits_str)
-    if target == "superconducting_cnot":
+    if target == "cnot":
         return _ir_gate_to_openqasm_cnot(name, op.params, qubits_str)
     raise QASMConversionError(f"Unsupported target: {target}")
 
 
 def _ir_gate_to_openqasm_cz(name: str, params: list[float], qubits_str: str) -> str:
-    """Serialize a ``superconducting_cz`` IR gate into OpenQASM text.
+    """Serialize a ``cz`` IR gate into OpenQASM text.
 
     Args:
         name: Native gate name.
@@ -348,12 +348,12 @@ def _ir_gate_to_openqasm_cz(name: str, params: list[float], qubits_str: str) -> 
     if name in _parameterless:
         return f"{name} {qubits_str};"
     raise QASMConversionError(
-        f"IR gate '{name}' has no OpenQASM mapping for superconducting_cz"
+        f"IR gate '{name}' has no OpenQASM mapping for cz"
     )
 
 
 def _ir_gate_to_openqasm_cnot(name: str, params: list[float], qubits_str: str) -> str:
-    """Serialize a ``superconducting_cnot`` IR gate into OpenQASM text.
+    """Serialize a ``cnot`` IR gate into OpenQASM text.
 
     Args:
         name: Native gate name.
@@ -377,5 +377,5 @@ def _ir_gate_to_openqasm_cnot(name: str, params: list[float], qubits_str: str) -
     if name == "id":
         return f"id {qubits_str};"
     raise QASMConversionError(
-        f"IR gate '{name}' has no OpenQASM mapping for superconducting_cnot"
+        f"IR gate '{name}' has no OpenQASM mapping for cnot"
     )

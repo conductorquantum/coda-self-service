@@ -26,7 +26,7 @@ PERSISTED_PRIVATE_KEY_PATH = Path(tempfile.gettempdir()) / "coda-private-key"
 {
   "qpu_id": "my-qpu",
   "qpu_display_name": "My QPU",
-  "native_gate_set": "superconducting_cz",
+  "native_gate_set": "cz",
   "num_qubits": 5,
   "jwt_key_id": "qpu-my-qpu-1710000000000",
   "jwt_private_key_path": "/tmp/coda-private-key",

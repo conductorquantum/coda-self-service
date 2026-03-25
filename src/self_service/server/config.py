@@ -130,7 +130,7 @@ class Settings(BaseSettings):
 
     qpu_id: str = ""
     qpu_display_name: str = ""
-    native_gate_set: str = "superconducting_cz"
+    native_gate_set: str = "cz"
     num_qubits: int = 5
 
     redis_url: str = ""

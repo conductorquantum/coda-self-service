@@ -101,7 +101,7 @@ def consumer(
 
 
 VALID_IR_JSON = (
-    '{"version":"1.0","target":"superconducting_cz","num_qubits":2,'
+    '{"version":"1.0","target":"cz","num_qubits":2,'
     '"gates":[{"gate":"cz","qubits":[0,1],"params":[]}],'
     '"measurements":[0,1],'
     '"metadata":{"source_hash":"abc123","compiled_at":"2026-01-01T00:00:00Z"}}'

@@ -105,7 +105,7 @@ class TestSettings:
                 {
                     "qpu_id": "persisted-node",
                     "qpu_display_name": "Persisted Node",
-                    "native_gate_set": "superconducting_cz",
+                    "native_gate_set": "cz",
                     "num_qubits": 9,
                     "jwt_key_id": "persisted-key-id",
                     "jwt_private_key_path": str(key_path),

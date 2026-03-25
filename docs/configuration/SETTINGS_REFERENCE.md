@@ -9,7 +9,7 @@ Complete field reference for the `Settings` class in
 |---|---|---|---|---|
 | `qpu_id` | `str` | `""` | `CODA_QPU_ID` | QPU identifier (set during self-service). |
 | `qpu_display_name` | `str` | `""` | `CODA_QPU_DISPLAY_NAME` | Human-readable QPU name. |
-| `native_gate_set` | `str` | `"superconducting_cz"` | `CODA_NATIVE_GATE_SET` | Hardware target gate set. |
+| `native_gate_set` | `str` | `"cz"` | `CODA_NATIVE_GATE_SET` | Hardware target gate set. |
 | `num_qubits` | `int` | `5` | `CODA_NUM_QUBITS` | Number of qubits on the device. |
 
 ## Connectivity

@@ -50,7 +50,7 @@ including type coercion for booleans, integers, and lists.
 
 | Variable | Default | Description |
 |---|---|---|
-| `CODA_NATIVE_GATE_SET` | `superconducting_cz` | Hardware target. |
+| `CODA_NATIVE_GATE_SET` | `cz` | Hardware target. |
 | `CODA_NUM_QUBITS` | `5` | Device qubit count. |
 | `CODA_WEBAPP_URL` | `https://coda.conductorquantum.com` | Coda cloud base URL. Overridden by the self-service bundle on connect. |
 | `CODA_SELF_SERVICE_CONNECT_HEADERS` | `{}` | Extra headers for connect requests (JSON object). Used for deployment protection bypass. |
