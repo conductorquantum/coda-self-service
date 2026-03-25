@@ -267,7 +267,7 @@ class TestQASMConversionErrors:
         """Reject targets that the round-trip helper does not support."""
         qasm = 'OPENQASM 3.0;\ninclude "stdgates.inc";\nqubit[2] q;\nrx(0.5) q[0];\n'
         with pytest.raises(QASMConversionError, match="Unsupported target"):
-            openqasm_to_ir(qasm, target="iswap")
+            openqasm_to_ir(qasm, target="unknown_target")
 
     def test_comment_lines_are_skipped(self) -> None:
         """Ignore comment lines while parsing supported QASM."""
