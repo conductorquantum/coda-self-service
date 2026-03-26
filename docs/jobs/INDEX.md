@@ -17,9 +17,9 @@ and acknowledging messages.
 
 | File | Role |
 |---|---|
-| `src/self_service/server/consumer.py` | `RedisConsumer` — main consume loop, message processing, status tracking. |
-| `src/self_service/server/ir.py` | `NativeGateIR`, `GateOp`, `IRMetadata` — circuit schema and validation. |
-| `src/self_service/server/executor.py` | `JobExecutor` protocol, `NoopExecutor`, `load_executor()`. |
+| `src/coda_node/server/consumer.py` | `RedisConsumer` — main consume loop, message processing, status tracking. |
+| `src/coda_node/server/ir.py` | `NativeGateIR`, `GateOp`, `IRMetadata` — circuit schema and validation. |
+| `src/coda_node/server/executor.py` | `JobExecutor` protocol, `NoopExecutor`, `load_executor()`. |
 
 ## Job Lifecycle
 

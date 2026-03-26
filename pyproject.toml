@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "coda-self-service"
+name = "coda-node"
 version = "0.1.0"
 description = "Minimal server runtime for connecting execution backends to Coda."
 readme = "README.md"
@@ -22,8 +22,8 @@ dependencies = [
 ]
 
 [project.scripts]
-coda = "self_service.server.cli:main"
-coda-self-service = "self_service.server.cli:main"
+coda = "coda_node.server.cli:main"
+coda-node = "coda_node.server.cli:main"
 
 [dependency-groups]
 dev = [
@@ -36,7 +36,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/self_service"]
+packages = ["src/coda_node"]
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers --strict-config"
@@ -48,7 +48,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src/self_service"]
+source = ["src/coda_node"]
 branch = true
 
 [tool.coverage.report]

@@ -3,7 +3,7 @@
 The VPN subsystem provides secure network connectivity between the
 QPU node and the Coda cloud. It handles three concerns:
 
-1. **Provisioning** — receiving an OpenVPN profile during self-service,
+1. **Provisioning** — receiving an OpenVPN profile during node provisioning,
    validating it for safety, and launching a managed daemon.
 2. **Health monitoring** — detecting the tunnel interface, probing
    cloud endpoints, and continuously evaluating VPN health.
@@ -14,7 +14,7 @@ QPU node and the Coda cloud. It handles three concerns:
 > `connection_mode` is `"vpn"` (the default). When `connection_mode` is
 > `"https"`, the cloud sets `vpn.required = false` and omits the VPN
 > profile. The node skips OpenVPN entirely and VPNGuard passes preflight
-> unconditionally. See [Connect Protocol](../self-service/CONNECT_PROTOCOL.md)
+> unconditionally. See [Connect Protocol](../node/CONNECT_PROTOCOL.md)
 > for details on connection modes.
 
 ## Topics
@@ -29,9 +29,9 @@ QPU node and the Coda cloud. It handles three concerns:
 
 | File | Role |
 |---|---|
-| `src/self_service/vpn/guard.py` | `VPNGuard` class — preflight, watch loop, platform-specific interface detection. |
-| `src/self_service/vpn/service.py` | OpenVPN daemon management, profile validation, tunnel polling. |
-| `src/self_service/vpn/__init__.py` | Public API re-exports for the VPN package. |
+| `src/coda_node/vpn/guard.py` | `VPNGuard` class — preflight, watch loop, platform-specific interface detection. |
+| `src/coda_node/vpn/service.py` | OpenVPN daemon management, profile validation, tunnel polling. |
+| `src/coda_node/vpn/__init__.py` | Public API re-exports for the VPN package. |
 
 ## Cloud Counterparts
 

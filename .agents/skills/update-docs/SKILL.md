@@ -28,7 +28,7 @@ docs/<area>/
 - Each feature area has its own subdirectory with an `INDEX.md`.
 - `INDEX.md` files contain: overview, topics table, key source files table, and cloud counterparts (if any).
 - Topic files document: purpose, API/format details, code references, and cross-links.
-- Use "self-service" (not "bootstrap") for provisioning terminology.
+- Use "node" (not "bootstrap" or "self-service") for provisioning terminology.
 - External identifiers from other codebases keep their original names with a "(cloud-side naming)" annotation.
 
 ## How to update

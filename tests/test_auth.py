@@ -5,7 +5,7 @@ from datetime import timedelta
 import jwt
 import pytest
 
-from self_service.server.auth import (
+from coda_node.server.auth import (
     DEFAULT_ISSUER,
     KEY_SIZE,
     KeyPair,

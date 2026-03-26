@@ -18,10 +18,10 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from self_service.server.auth import sign_token
+from coda_node.server.auth import sign_token
 
 if TYPE_CHECKING:
-    from self_service.server.consumer import RedisConsumer
+    from coda_node.server.consumer import RedisConsumer
 
 logger = logging.getLogger(__name__)
 

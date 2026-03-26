@@ -1,6 +1,6 @@
 # CLI Reference
 
-The `coda` (and `coda-self-service`) command-line interface provides
+The `coda` (and `coda-node`) command-line interface provides
 subcommands for managing the node runtime, including daemon mode for
 running as a background process.
 
@@ -14,7 +14,7 @@ coda start [--token TOKEN] [--host HOST] [--port PORT] [--daemon]
 
 | Flag | Env Override | Description |
 |---|---|---|
-| `--token`, `-t` | `CODA_SELF_SERVICE_TOKEN` | Self-service token for first-time provisioning. |
+| `--token`, `-t` | `CODA_NODE_TOKEN` | Node token for first-time provisioning. |
 | `--host`, `-H` | `CODA_HOST` | Bind address (default: `0.0.0.0`). |
 | `--port`, `-p` | `CODA_PORT` | Bind port (default: `8080`). |
 | `--daemon`, `-d` | — | Run as a background daemon process. |
@@ -34,8 +34,8 @@ The server runs under uvicorn with `reload=False` and
 
 When `--daemon` is specified, the server spawns as a background process:
 
-- PID is written to `/tmp/coda-self-service.pid`
-- Output is redirected to `/tmp/coda-self-service.log`
+- PID is written to `/tmp/coda-node.pid`
+- Output is redirected to `/tmp/coda-node.log`
 - The command returns immediately after spawning
 
 Use `coda stop` to terminate the daemon.
@@ -86,7 +86,7 @@ coda logs [-n LINES]
 |---|---|---|
 | `-n`, `--lines` | `50` | Number of lines to display. |
 
-Reads from `/tmp/coda-self-service.log`.
+Reads from `/tmp/coda-node.log`.
 
 Exit code: `0` if log exists, `1` if not found.
 
@@ -128,15 +128,15 @@ Actions:
 3. Removes all persisted files:
    - `/tmp/coda.config`
    - `/tmp/coda-private-key`
-   - `/tmp/coda-self-service.pid` (daemon PID)
-   - `/tmp/coda-self-service.log` (daemon log)
-   - `/tmp/coda-self-service-openvpn.pid`
-   - `/tmp/coda-self-service-openvpn.log`
-   - `/tmp/coda-self-service.ovpn`
+   - `/tmp/coda-node.pid` (daemon PID)
+   - `/tmp/coda-node.log` (daemon log)
+   - `/tmp/coda-node-openvpn.pid`
+   - `/tmp/coda-node-openvpn.log`
+   - `/tmp/coda-node.ovpn`
    - Any additional paths referenced in the config file
-     (`jwt_private_key_path`, `self_service_vpn_profile_path`).
+     (`jwt_private_key_path`, `node_vpn_profile_path`).
 
-After reset, the node must be re-provisioned with a fresh self-service token.
+After reset, the node must be re-provisioned with a fresh node token.
 
 Also available as a global flag: `coda --reset`.
 
@@ -157,11 +157,11 @@ found.
 
 ## Entry Points
 
-Both `coda` and `coda-self-service` are registered as console scripts
+Both `coda` and `coda-node` are registered as console scripts
 in `pyproject.toml` and point to the same function:
 
 ```toml
 [project.scripts]
-coda = "self_service.server.cli:main"
-coda-self-service = "self_service.server.cli:main"
+coda = "coda_node.server.cli:main"
+coda-node = "coda_node.server.cli:main"
 ```

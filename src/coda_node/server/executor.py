@@ -25,11 +25,11 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
-from self_service.errors import ExecutorError
-from self_service.server.ir import NativeGateIR
+from coda_node.errors import ExecutorError
+from coda_node.server.ir import NativeGateIR
 
 if TYPE_CHECKING:
-    from self_service.server.config import Settings
+    from coda_node.server.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ def _discover_executor_factories() -> list[str]:
 
     candidates: list[str] = []
     for pkg in packages_distributions():
-        if "." in pkg or pkg.startswith("_") or pkg == "self_service":
+        if "." in pkg or pkg.startswith("_") or pkg == "coda_node":
             continue
         module_name = f"{pkg}.executor_factory"
         try:

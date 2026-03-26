@@ -16,8 +16,8 @@ so the cloud can verify the sender.
 
 | File | Role |
 |---|---|
-| `src/self_service/server/webhook.py` | `WebhookClient`, `WebhookPayload` |
-| `src/self_service/server/auth.py` | `sign_token()` used for per-request JWT signing |
+| `src/coda_node/server/webhook.py` | `WebhookClient`, `WebhookPayload` |
+| `src/coda_node/server/auth.py` | `sign_token()` used for per-request JWT signing |
 
 ## Cloud Counterpart
 

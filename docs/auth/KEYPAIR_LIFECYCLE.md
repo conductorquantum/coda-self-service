@@ -2,9 +2,9 @@
 
 ## Generation
 
-### On the Cloud (Self-Service)
+### On the Cloud (Node Provisioning)
 
-During `buildSelfServiceResponse()`, the cloud generates a fresh
+During `buildNodeResponse()`, the cloud generates a fresh
 RS256 keypair using Node.js `crypto.generateKeyPairSync()`:
 
 ```typescript
@@ -32,7 +32,7 @@ keypair = generate_keypair("my-qpu")
 ```
 
 This is not used in production — the cloud generates and distributes
-keypairs during self-service provisioning.
+keypairs during node provisioning.
 
 ## Storage
 
@@ -50,7 +50,7 @@ The public key is stored in the `jwt_keys` table:
 ### Node Side
 
 The private key is persisted to `/tmp/coda-private-key` with `0600`
-permissions (see [CREDENTIAL_PERSISTENCE.md](../self-service/CREDENTIAL_PERSISTENCE.md)).
+permissions (see [CREDENTIAL_PERSISTENCE.md](../node/CREDENTIAL_PERSISTENCE.md)).
 
 The key ID is stored in `/tmp/coda.config` as `jwt_key_id`.
 
@@ -82,7 +82,7 @@ the correct key.
 ## Security Properties
 
 - The private key is generated on the cloud and transmitted to the
-  node exactly once during self-service. It is never stored on the
+  node exactly once during node provisioning. It is never stored on the
   cloud.
 - The private key is stored on the node's filesystem with `0600`
   permissions and validated on read.

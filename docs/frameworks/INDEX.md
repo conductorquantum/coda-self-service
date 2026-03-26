@@ -1,6 +1,6 @@
 # Executor Factory Convention
 
-`coda-self-service` is completely framework-agnostic.  It does not know
+`coda-node` is completely framework-agnostic.  It does not know
 about any specific hardware control system.  Backend
 integration is achieved through a simple executor factory convention.
 
@@ -20,7 +20,7 @@ exposes: <pkg>.executor_factory:create_executor
         |
         v
 +------------------+
-| load_executor()  |  <-- coda-self-service startup
+| load_executor()  |  <-- coda-node startup
 | (executor.py)    |
 +--------+---------+
          |

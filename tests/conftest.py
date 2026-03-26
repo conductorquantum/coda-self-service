@@ -16,8 +16,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-config_module = importlib.import_module("self_service.server.config")
-daemon_module = importlib.import_module("self_service.server.daemon")
+config_module = importlib.import_module("coda_node.server.config")
+daemon_module = importlib.import_module("coda_node.server.daemon")
 
 
 @pytest.fixture(autouse=True)

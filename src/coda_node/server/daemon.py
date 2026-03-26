@@ -4,8 +4,8 @@ Provides functionality to run the server as a background daemon process
 with PID file tracking, log file redirection, and signal-based shutdown.
 
 The daemon process spawns uvicorn in the background, writes its PID to
-``/tmp/coda-self-service.pid``, and redirects output to
-``/tmp/coda-self-service.log``.
+``/tmp/coda-node.pid``, and redirects output to
+``/tmp/coda-node.log``.
 """
 
 from __future__ import annotations
@@ -29,8 +29,8 @@ __all__ = [
 ]
 
 _RUNTIME_DIR = Path(tempfile.gettempdir())
-DAEMON_PID_PATH = _RUNTIME_DIR / "coda-self-service.pid"
-DAEMON_LOG_PATH = _RUNTIME_DIR / "coda-self-service.log"
+DAEMON_PID_PATH = _RUNTIME_DIR / "coda-node.pid"
+DAEMON_LOG_PATH = _RUNTIME_DIR / "coda-node.log"
 
 
 def read_daemon_pid() -> int | None:
@@ -108,7 +108,7 @@ def start_daemon(
     Args:
         host: Bind address for the server.
         port: Bind port for the server.
-        token: Optional self-service token for first-run provisioning.
+        token: Optional node token for first-run provisioning.
 
     Returns:
         The PID of the spawned daemon process.
@@ -129,14 +129,14 @@ def start_daemon(
     env["CODA_HOST"] = host
     env["CODA_PORT"] = str(port)
     if token:
-        env["CODA_SELF_SERVICE_TOKEN"] = token
+        env["CODA_NODE_TOKEN"] = token
 
     # Build the command to run uvicorn directly
     cmd = [
         sys.executable,
         "-m",
         "uvicorn",
-        "self_service.server.app:app",
+        "coda_node.server.app:app",
         "--host",
         host,
         "--port",

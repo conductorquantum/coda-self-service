@@ -15,7 +15,7 @@ variables, persisted state, and defaults. The `Settings` class
 
 | File | Role |
 |---|---|
-| `src/self_service/server/config.py` | `Settings` class, `load_persisted_runtime_config()`, file paths. |
+| `src/coda_node/server/config.py` | `Settings` class, `load_persisted_runtime_config()`, file paths. |
 
 ## Precedence Order
 
@@ -23,10 +23,10 @@ Settings are resolved with the following priority (highest first):
 
 1. **Environment variables** — `CODA_`-prefixed (e.g. `CODA_REDIS_URL`).
 2. **Persisted runtime config** — from `/tmp/coda.config` (written
-   after successful self-service provisioning).
+   after successful node provisioning).
 3. **Hardcoded defaults** — defined on the `Settings` class.
 
-Persisted values only apply when no `self_service_token` is set and the
+Persisted values only apply when no `node_token` is set and the
 environment variable is empty, `None`, or `[]`.
 
 ## Validation
@@ -40,13 +40,13 @@ Two model validators enforce constraints:
 ### `merge_persisted_runtime_config` (mode="before")
 
 Merges persisted config into the settings dict before field validation.
-Skipped when a self-service token is present (to avoid overriding a
+Skipped when a node token is present (to avoid overriding a
 fresh provisioning with stale state).
 
-### `check_jwt_or_self_service` (mode="after")
+### `check_jwt_or_node_token` (mode="after")
 
 Requires either:
-- A `self_service_token` (for auto-provisioning), or
+- A `node_token` (for auto-provisioning), or
 - Both `jwt_private_key` and `jwt_key_id` (for direct JWT startup).
 
 Raises `ValueError` if neither is available.

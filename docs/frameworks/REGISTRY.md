@@ -21,7 +21,7 @@ For example, a backend package `coda-acme` would provide
 
 1. Lists all importable top-level Python packages via
    `importlib.metadata.packages_distributions()`.
-2. Skips internal packages (`self_service`, private `_`-prefixed
+2. Skips internal packages (`coda_node`, private `_`-prefixed
    packages, and sub-packages with dots).
 3. For each candidate, checks whether `<pkg>.executor_factory` exists
    using `importlib.util.find_spec()` (cheap filesystem check, no

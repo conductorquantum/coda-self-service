@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from self_service.vpn import ServiceState, VPNGuard, VPNStatus, validate_key_permissions
-from self_service.vpn.guard import (
+from coda_node.vpn import ServiceState, VPNGuard, VPNStatus, validate_key_permissions
+from coda_node.vpn.guard import (
     _parse_darwin_tun_interfaces,
     _parse_windows_tun_interfaces,
     _probe_target,
@@ -34,8 +34,8 @@ def test_parse_windows_tun_interfaces() -> None:
     assert _parse_windows_tun_interfaces(output) == "OpenVPN Wintun"
 
 
-@patch("self_service.vpn.guard.subprocess.run")
-@patch("self_service.vpn.guard.platform.system", return_value="Windows")
+@patch("coda_node.vpn.guard.subprocess.run")
+@patch("coda_node.vpn.guard.platform.system", return_value="Windows")
 def test_detect_tun_interface_windows(_sys: MagicMock, mock_run: MagicMock) -> None:
     mock_run.return_value = MagicMock(
         returncode=0,
@@ -44,7 +44,7 @@ def test_detect_tun_interface_windows(_sys: MagicMock, mock_run: MagicMock) -> N
     assert detect_tun_interface() == "OpenVPN Wintun"
 
 
-@patch("self_service.vpn.guard.socket.getaddrinfo")
+@patch("coda_node.vpn.guard.socket.getaddrinfo")
 def test_resolve_host(mock_getaddrinfo: MagicMock) -> None:
     mock_getaddrinfo.return_value = [(2, 1, 6, "", ("1.2.3.4", 443))]
     assert _resolve_host("example.com") is True
@@ -53,7 +53,7 @@ def test_resolve_host(mock_getaddrinfo: MagicMock) -> None:
 @pytest.mark.asyncio
 async def test_probe_target_success() -> None:
     mock_response = MagicMock(status_code=200)
-    with patch("self_service.vpn.guard.httpx.AsyncClient") as mock_cls:
+    with patch("coda_node.vpn.guard.httpx.AsyncClient") as mock_cls:
         instance = AsyncMock()
         instance.head = AsyncMock(return_value=mock_response)
         instance.__aenter__ = AsyncMock(return_value=instance)
@@ -68,7 +68,7 @@ async def test_probe_target_success() -> None:
 
 @pytest.mark.asyncio
 async def test_probe_target_connection_error() -> None:
-    with patch("self_service.vpn.guard.httpx.AsyncClient") as mock_cls:
+    with patch("coda_node.vpn.guard.httpx.AsyncClient") as mock_cls:
         instance = AsyncMock()
         instance.head = AsyncMock(side_effect=httpx.ConnectError("refused"))
         instance.__aenter__ = AsyncMock(return_value=instance)
@@ -83,7 +83,7 @@ async def test_probe_target_connection_error() -> None:
 
 @pytest.mark.asyncio
 async def test_vpn_guard_passes_when_not_required() -> None:
-    with patch("self_service.vpn.guard.detect_tun_interface", return_value=None):
+    with patch("coda_node.vpn.guard.detect_tun_interface", return_value=None):
         guard = VPNGuard(vpn_required=False)
         status = await guard.preflight()
     assert status.ok is True
@@ -127,7 +127,7 @@ def test_validate_key_permissions(tmp_path: Path) -> None:
     assert validate_key_permissions(str(key_file)) is True
 
 
-@patch("self_service.vpn.guard.platform.system", return_value="Windows")
+@patch("coda_node.vpn.guard.platform.system", return_value="Windows")
 def test_validate_key_permissions_windows(_sys: MagicMock, tmp_path: Path) -> None:
     key_file = tmp_path / "test.key"
     key_file.write_text("private-key-data")

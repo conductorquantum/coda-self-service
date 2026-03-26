@@ -14,4 +14,4 @@ COPY tests/ tests/
 RUN uv sync --frozen --no-install-workspace 2>/dev/null || uv sync
 
 ENTRYPOINT ["uv", "run", "pytest"]
-CMD ["tests/test_self_service_smoketest.py", "-v", "-m", "smoketest"]
+CMD ["tests/test_node_smoketest.py", "-v", "-m", "smoketest"]

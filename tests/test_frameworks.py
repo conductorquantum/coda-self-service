@@ -6,22 +6,22 @@ from unittest.mock import patch
 
 import pytest
 
-from self_service.errors import ExecutorError
-from self_service.server import executor as executor_module
-from self_service.server.executor import NoopExecutor, load_executor
+from coda_node.errors import ExecutorError
+from coda_node.server import executor as executor_module
+from coda_node.server.executor import NoopExecutor, load_executor
 
 
 class TestExplicitFactory:
     def test_executor_factory_import_path(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "test-token")
+        monkeypatch.setenv("CODA_NODE_TOKEN", "test-token")
         monkeypatch.setenv(
             "CODA_EXECUTOR_FACTORY",
-            "self_service.server.executor:NoopExecutor",
+            "coda_node.server.executor:NoopExecutor",
         )
 
-        from self_service.server.config import Settings
+        from coda_node.server.config import Settings
 
         settings = Settings()
         executor = load_executor(settings)
@@ -30,10 +30,10 @@ class TestExplicitFactory:
     def test_explicit_factory_wins_over_discovery(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "test-token")
+        monkeypatch.setenv("CODA_NODE_TOKEN", "test-token")
         monkeypatch.setenv(
             "CODA_EXECUTOR_FACTORY",
-            "self_service.server.executor:NoopExecutor",
+            "coda_node.server.executor:NoopExecutor",
         )
 
         fake_discovered = ["some_other.executor_factory:create_executor"]
@@ -42,17 +42,17 @@ class TestExplicitFactory:
             "_discover_executor_factories",
             return_value=fake_discovered,
         ):
-            from self_service.server.config import Settings
+            from coda_node.server.config import Settings
 
             settings = Settings()
             executor = load_executor(settings)
             assert hasattr(executor, "run")
 
     def test_bad_factory_path_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "test-token")
+        monkeypatch.setenv("CODA_NODE_TOKEN", "test-token")
         monkeypatch.setenv("CODA_EXECUTOR_FACTORY", "nonexistent.module:factory")
 
-        from self_service.server.config import Settings
+        from coda_node.server.config import Settings
 
         settings = Settings()
         with pytest.raises((ExecutorError, ModuleNotFoundError)):
@@ -61,10 +61,10 @@ class TestExplicitFactory:
     def test_malformed_factory_path_raises(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "test-token")
+        monkeypatch.setenv("CODA_NODE_TOKEN", "test-token")
         monkeypatch.setenv("CODA_EXECUTOR_FACTORY", "no_colon_here")
 
-        from self_service.server.config import Settings
+        from coda_node.server.config import Settings
 
         settings = Settings()
         with pytest.raises(ExecutorError, match="must look like"):
@@ -75,15 +75,15 @@ class TestAutoDiscovery:
     def test_single_discovered_factory_is_used(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "test-token")
+        monkeypatch.setenv("CODA_NODE_TOKEN", "test-token")
         monkeypatch.delenv("CODA_EXECUTOR_FACTORY", raising=False)
 
         with patch.object(
             executor_module,
             "_discover_executor_factories",
-            return_value=["self_service.server.executor:NoopExecutor"],
+            return_value=["coda_node.server.executor:NoopExecutor"],
         ):
-            from self_service.server.config import Settings
+            from coda_node.server.config import Settings
 
             settings = Settings()
             executor = load_executor(settings)
@@ -92,7 +92,7 @@ class TestAutoDiscovery:
     def test_multiple_discovered_factories_falls_back_to_noop(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "test-token")
+        monkeypatch.setenv("CODA_NODE_TOKEN", "test-token")
         monkeypatch.delenv("CODA_EXECUTOR_FACTORY", raising=False)
 
         with patch.object(
@@ -103,7 +103,7 @@ class TestAutoDiscovery:
                 "pkg_b.executor_factory:create_executor",
             ],
         ):
-            from self_service.server.config import Settings
+            from coda_node.server.config import Settings
 
             settings = Settings()
             executor = load_executor(settings)
@@ -112,7 +112,7 @@ class TestAutoDiscovery:
     def test_zero_discovered_factories_falls_back_to_noop(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "test-token")
+        monkeypatch.setenv("CODA_NODE_TOKEN", "test-token")
         monkeypatch.delenv("CODA_EXECUTOR_FACTORY", raising=False)
 
         with patch.object(
@@ -120,7 +120,7 @@ class TestAutoDiscovery:
             "_discover_executor_factories",
             return_value=[],
         ):
-            from self_service.server.config import Settings
+            from coda_node.server.config import Settings
 
             settings = Settings()
             executor = load_executor(settings)

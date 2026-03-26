@@ -16,5 +16,5 @@ repos:
         entry: bash -c 'claude -p --dangerously-skip-permissions --allowedTools "Read,Edit,Write,Bash,Glob,Grep" --append-system-prompt-file .agents/skills/update-docs/SKILL.md "Review the staged diff and update any docs that are out of date. If nothing needs updating, do nothing." && git add docs/ README.md 2>/dev/null || true'
         language: system
         pass_filenames: false
-        files: ^src/self_service/
+        files: ^src/coda_node/
         stages: [pre-commit]

@@ -3,7 +3,7 @@
 The application is constructed via :func:`create_app`, which wires up a
 lifespan that boots the VPN guard, Redis consumer, heartbeat reporter,
 and webhook client.  A module-level ``app`` instance is provided for
-``uvicorn`` import-string references (``self_service.server.app:app``).
+``uvicorn`` import-string references (``coda_node.server.app:app``).
 """
 
 from __future__ import annotations
@@ -17,12 +17,12 @@ import redis.asyncio as aioredis
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from self_service.server.config import Settings
-from self_service.server.consumer import RedisConsumer
-from self_service.server.executor import JobExecutor, load_executor
-from self_service.server.heartbeat import HeartbeatClient
-from self_service.server.webhook import WebhookClient
-from self_service.vpn import (
+from coda_node.server.config import Settings
+from coda_node.server.consumer import RedisConsumer
+from coda_node.server.executor import JobExecutor, load_executor
+from coda_node.server.heartbeat import HeartbeatClient
+from coda_node.server.webhook import WebhookClient
+from coda_node.vpn import (
     ServiceState,
     VPNGuard,
     connect_settings,
@@ -53,7 +53,7 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
     The returned app uses an async lifespan that:
 
     1. Loads ``Settings`` from environment / persisted config.
-    2. Connects to the Coda cloud (self-service or JWT reconnect).
+    2. Connects to the Coda cloud (node or JWT reconnect).
     3. Runs a VPN preflight check and starts background monitoring.
     4. Opens a Redis consumer loop that dispatches jobs to *executor*.
     5. On shutdown, drains in-flight work and tears down resources.
@@ -61,7 +61,7 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
     Args:
         executor: Custom execution backend.  When ``None``, the executor
             is resolved from ``CODA_EXECUTOR_FACTORY`` or falls back to
-            :class:`~self_service.server.executor.NoopExecutor`.
+            :class:`~coda_node.server.executor.NoopExecutor`.
 
     Returns:
         A configured :class:`~fastapi.FastAPI` instance with ``/health``
@@ -78,7 +78,7 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
             interface_hint=settings.vpn_interface_hint,
             check_interval_sec=settings.vpn_check_interval_sec,
             vpn_required=settings.vpn_required,
-            extra_headers=settings.self_service_connect_headers,
+            extra_headers=settings.node_connect_headers,
         )
         vpn_status = await guard.preflight()
         if (
@@ -98,7 +98,7 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
             qpu_id=settings.qpu_id,
             jwt_private_key=settings.jwt_private_key,
             jwt_key_id=settings.jwt_key_id,
-            extra_headers=settings.self_service_connect_headers,
+            extra_headers=settings.node_connect_headers,
         )
         consumer = RedisConsumer(
             redis=redis_client,
@@ -115,7 +115,7 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
             consumer=consumer,
             interval=settings.heartbeat_interval_sec,
             connectivity=connectivity,
-            extra_headers=settings.self_service_connect_headers,
+            extra_headers=settings.node_connect_headers,
         )
 
         watch_task = asyncio.create_task(guard.watch(_on_vpn_state_change))
@@ -151,7 +151,7 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
         await redis_client.aclose()
         kill_openvpn_daemon()
 
-    app = FastAPI(title="Coda Self-Service", lifespan=lifespan)
+    app = FastAPI(title="Coda Node", lifespan=lifespan)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

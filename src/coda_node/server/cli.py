@@ -1,10 +1,10 @@
 """Command-line interface for the Coda node runtime.
 
-Provides the ``coda`` (and ``coda-self-service``) entry points with
+Provides the ``coda`` (and ``coda-node``) entry points with
 subcommands:
 
 * ``start`` -- launch the FastAPI server with optional ``--token`` for
-  first-time self-service provisioning. Use ``--daemon`` to run in the
+  first-time node provisioning. Use ``--daemon`` to run in the
   background.
 * ``stop`` -- stop the daemon if running in background mode.
 * ``status`` -- show daemon status and basic runtime info.
@@ -29,12 +29,12 @@ from pathlib import Path
 
 import uvicorn
 
-from self_service.server.config import (
+from coda_node.server.config import (
     PERSISTED_CONFIG_PATH,
     PERSISTED_PRIVATE_KEY_PATH,
     Settings,
 )
-from self_service.server.daemon import (
+from coda_node.server.daemon import (
     DAEMON_LOG_PATH,
     DAEMON_PID_PATH,
     daemon_status,
@@ -43,7 +43,7 @@ from self_service.server.daemon import (
     stop_daemon,
     tail_daemon_log,
 )
-from self_service.vpn import (
+from coda_node.vpn import (
     OPENVPN_LOG_PATH,
     OPENVPN_PID_PATH,
     detect_tun_interface,
@@ -68,7 +68,7 @@ def _build_parser() -> argparse.ArgumentParser:
     start_parent = argparse.ArgumentParser(add_help=False)
     start_parent.add_argument("-H", "--host")
     start_parent.add_argument("-p", "--port", type=int)
-    start_parent.add_argument("-t", "--token", dest="self_service_token")
+    start_parent.add_argument("-t", "--token", dest="node_token")
     start_parent.add_argument(
         "-d",
         "--daemon",
@@ -111,14 +111,14 @@ def _apply_overrides(args: argparse.Namespace) -> None:
     """Push CLI flags into environment variables before Settings loads."""
     host = getattr(args, "host", None)
     port = getattr(args, "port", None)
-    self_service_token = getattr(args, "self_service_token", None)
+    node_token = getattr(args, "node_token", None)
 
     if host:
         os.environ["CODA_HOST"] = host
     if port is not None:
         os.environ["CODA_PORT"] = str(port)
-    if self_service_token:
-        os.environ["CODA_SELF_SERVICE_TOKEN"] = self_service_token
+    if node_token:
+        os.environ["CODA_NODE_TOKEN"] = node_token
 
 
 def _print_banner(title: str, rows: list[tuple[str, str]]) -> None:
@@ -154,7 +154,7 @@ def _read_reset_paths() -> list[Path]:
         OPENVPN_LOG_PATH,
         DAEMON_PID_PATH,
         DAEMON_LOG_PATH,
-        Path(f"{tempfile.gettempdir()}/coda-self-service.ovpn"),
+        Path(f"{tempfile.gettempdir()}/coda-node.ovpn"),
     }
     if PERSISTED_CONFIG_PATH.exists():
         try:
@@ -162,7 +162,7 @@ def _read_reset_paths() -> list[Path]:
         except (OSError, json.JSONDecodeError):
             data = {}
         if isinstance(data, dict):
-            for key in ("jwt_private_key_path", "self_service_vpn_profile_path"):
+            for key in ("jwt_private_key_path", "node_vpn_profile_path"):
                 value = data.get(key)
                 if isinstance(value, str) and value:
                     paths.add(Path(value))
@@ -222,7 +222,7 @@ def _doctor() -> int:
 
 
 def main() -> None:
-    """Entry point for the ``coda`` / ``coda-self-service`` CLI.
+    """Entry point for the ``coda`` / ``coda-node`` CLI.
 
     Parses arguments, dispatches to the appropriate subcommand, and
     raises :class:`SystemExit` with the subcommand's return code.
@@ -250,14 +250,14 @@ def main() -> None:
                 [
                     ("WEBAPP", settings.webapp_url),
                     ("ENDPOINT", f"{settings.host}:{settings.port}"),
-                    ("MODE", _start_mode(settings.self_service_token)),
+                    ("MODE", _start_mode(settings.node_token)),
                 ],
             )
             try:
                 pid = start_daemon(
                     host=settings.host,
                     port=settings.port,
-                    token=settings.self_service_token or None,
+                    token=settings.node_token or None,
                 )
                 print(f"  Started daemon (PID {pid})")
                 print(f"  Log file: {DAEMON_LOG_PATH}")
@@ -275,11 +275,11 @@ def main() -> None:
             [
                 ("WEBAPP", settings.webapp_url),
                 ("ENDPOINT", f"{settings.host}:{settings.port}"),
-                ("MODE", _start_mode(settings.self_service_token)),
+                ("MODE", _start_mode(settings.node_token)),
             ],
         )
         uvicorn.run(
-            "self_service.server.app:app",
+            "coda_node.server.app:app",
             host=settings.host,
             port=settings.port,
             reload=False,

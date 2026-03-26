@@ -97,8 +97,8 @@ When `CODA_EXECUTOR_FACTORY` is set (or a factory is auto-discovered),
 ### Example: Simple Executor
 
 ```python
-from self_service.server.executor import ExecutionResult
-from self_service.server.ir import NativeGateIR
+from coda_node.server.executor import ExecutionResult
+from coda_node.server.ir import NativeGateIR
 
 
 class MyExecutor:
@@ -118,9 +118,9 @@ export CODA_EXECUTOR_FACTORY="my_project:MyExecutor"
 ### Example: Factory with Settings
 
 ```python
-from self_service.server.config import Settings
-from self_service.server.executor import ExecutionResult
-from self_service.server.ir import NativeGateIR
+from coda_node.server.config import Settings
+from coda_node.server.executor import ExecutionResult
+from coda_node.server.ir import NativeGateIR
 
 
 class HardwareExecutor:

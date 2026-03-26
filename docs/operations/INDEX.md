@@ -16,7 +16,7 @@ and the exception hierarchy.
 
 | File | Role |
 |---|---|
-| `src/self_service/server/app.py` | FastAPI app, lifespan, `/health`, `/ready`. |
-| `src/self_service/server/cli.py` | CLI entry point and subcommands. |
-| `src/self_service/server/daemon.py` | Daemon process management (start, stop, status, logs). |
-| `src/self_service/errors.py` | Exception hierarchy. |
+| `src/coda_node/server/app.py` | FastAPI app, lifespan, `/health`, `/ready`. |
+| `src/coda_node/server/cli.py` | CLI entry point and subcommands. |
+| `src/coda_node/server/daemon.py` | Daemon process management (start, stop, status, logs). |
+| `src/coda_node/errors.py` | Exception hierarchy. |

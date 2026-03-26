@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from self_service.server import daemon
+from coda_node.server import daemon
 
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32", reason="Daemon tests hang on Windows CI"

@@ -1,12 +1,12 @@
-# coda-self-service Documentation
+# coda-node Documentation
 
-Comprehensive documentation for the Coda self-service node runtime.
+Comprehensive documentation for the Coda node runtime.
 
 ## Feature Areas
 
 | Area | Description | Directory |
 |---|---|---|
-| [Self-Service & Reconnect](self-service/INDEX.md) | Self-service provisioning, connect protocol, token lifecycle, credential persistence. | `docs/self-service/` |
+| [Node & Reconnect](node/INDEX.md) | Node provisioning, connect protocol, token lifecycle, credential persistence. | `docs/node/` |
 | [VPN Management](vpn/INDEX.md) | OpenVPN tunnel lifecycle, health monitoring, cloud VPN infrastructure. | `docs/vpn/` |
 | [Hardware Frameworks](frameworks/INDEX.md) | Pluggable hardware control frameworks, device config, auto-detection. | `docs/frameworks/` |
 | [Job Execution](jobs/INDEX.md) | Redis Streams consumer, NativeGateIR schema, custom execution backends. | `docs/jobs/` |
@@ -27,7 +27,7 @@ The node supports two connection modes, configured per-token in the Coda webapp:
 │                        Coda Cloud                           │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
 │  │ /qpu/connect │  │ /qpu/webhook │  │ Redis Streams    │  │
-│  │ (self-svc)   │  │  (results)   │  │  qpu:{id}:jobs   │  │
+│  │ (node)       │  │  (results)   │  │  qpu:{id}:jobs   │  │
 │  └──────┬───────┘  └──────▲───────┘  └────────┬─────────┘  │
 │         │                 │                    │            │
 │         │  VPN mode: AWS Client VPN (mTLS)     │            │
@@ -69,7 +69,7 @@ The VPN infrastructure and connect endpoint are introduced in
 ## Source Layout
 
 ```
-src/self_service/
+src/coda_node/
 ├── __init__.py          # Package exports (CodaError, app, create_app)
 ├── errors.py            # Exception hierarchy
 ├── server/
@@ -86,5 +86,5 @@ src/self_service/
 └── vpn/
     ├── __init__.py      # Public API re-exports
     ├── guard.py         # VPN preflight and health monitoring
-    └── service.py       # Self-service provisioning, OpenVPN management
+    └── service.py       # Node provisioning, OpenVPN management
 ```

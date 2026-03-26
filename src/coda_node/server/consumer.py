@@ -9,9 +9,9 @@ Message lifecycle:
 
 1. ``XREADGROUP`` blocks for new messages on ``qpu:<qpu_id>:jobs``.
 2. Each message is deserialized into a :class:`NativeGateIR` and handed
-   to the :class:`~self_service.server.executor.JobExecutor`.
+   to the    :class:`~coda_node.server.executor.JobExecutor`.
 3. The result (or error) is posted back via
-   :class:`~self_service.server.webhook.WebhookClient`.
+   :class:`~coda_node.server.webhook.WebhookClient`.
 4. The message is ``XACK``-ed regardless of success or failure so it
    does not re-enter the pending list.
 """
@@ -28,12 +28,12 @@ from typing import TYPE_CHECKING, TypeVar, cast
 
 import redis.asyncio as aioredis
 
-from self_service.server.ir import NativeGateIR
-from self_service.server.webhook import WebhookPayload
+from coda_node.server.ir import NativeGateIR
+from coda_node.server.webhook import WebhookPayload
 
 if TYPE_CHECKING:
-    from self_service.server.executor import JobExecutor
-    from self_service.server.webhook import WebhookClient
+    from coda_node.server.executor import JobExecutor
+    from coda_node.server.webhook import WebhookClient
 
 logger = logging.getLogger(__name__)
 

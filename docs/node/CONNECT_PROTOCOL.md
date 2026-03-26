@@ -1,7 +1,7 @@
 # Connect Protocol
 
 The unified connect endpoint (`POST /api/internal/qpu/connect`) handles
-both first-time self-service provisioning and JWT-based reconnect. The cloud
+both first-time node provisioning and JWT-based reconnect. The cloud
 distinguishes the two modes by inspecting the bearer token format.
 
 ## Endpoint
@@ -16,7 +16,7 @@ Authorization: Bearer <token-or-jwt>
 
 | Mode | Token format | When |
 |---|---|---|
-| Self-service | Opaque string (not a JWT) | First run with `CODA_SELF_SERVICE_TOKEN` |
+| Node | Opaque string (not a JWT) | First run with `CODA_NODE_TOKEN` |
 | Reconnect | RS256 JWT (three dot-separated segments) | Subsequent starts with persisted credentials |
 
 The cloud uses `token.split(".").length === 3` to detect JWTs.
@@ -35,23 +35,23 @@ The cloud uses `token.split(".").length === 3` to detect JWTs.
 
 ### Node-Side Request Construction
 
-**Self-service** (`fetch_self_service_bundle` in `vpn/service.py`):
+**Node** (`fetch_node_bundle` in `vpn/service.py`):
 
 ```python
-payload = {"machine_fingerprint": settings.self_service_machine_fingerprint}
-auth_header = f"Bearer {settings.self_service_token}"
+payload = {"machine_fingerprint": settings.node_machine_fingerprint}
+auth_header = f"Bearer {settings.node_token}"
 ```
 
 **Reconnect** (`fetch_reconnect_bundle` in `vpn/service.py`):
 
 ```python
-payload = {"machine_fingerprint": settings.self_service_machine_fingerprint}
+payload = {"machine_fingerprint": settings.node_machine_fingerprint}
 token = sign_token(settings.qpu_id, settings.jwt_private_key, key_id=settings.jwt_key_id)
 auth_header = f"Bearer {token}"
 ```
 
 Both call `_post_connect()` with exponential-backoff retry on 5xx and
-transport errors (configurable via `CODA_SELF_SERVICE_CONNECT_RETRIES`,
+transport errors (configurable via `CODA_NODE_CONNECT_RETRIES`,
 default 3).
 
 ## Response Body
@@ -93,7 +93,7 @@ but are informational from the node runtime's perspective.
 
 ### Key Differences by Auth Mode
 
-| Field | Self-service | Reconnect |
+| Field | Node | Reconnect |
 |---|---|---|
 | `jwt_private_key` | Present (new keypair generated on first run) | Absent (node already has it) |
 | `jwt_key_id` | Present | Present (looked up from DB) |
@@ -114,7 +114,7 @@ In HTTPS mode, the node skips OpenVPN setup and the VPN guard passes preflight u
 
 ## Bundle Application
 
-`apply_self_service_bundle()` in `vpn/service.py` processes the response:
+`apply_node_bundle()` in `vpn/service.py` processes the response:
 
 1. Extracts and validates required fields (`qpu_id`,
    `qpu_display_name`/`qpu_label`, `native_gate_set`, `num_qubits`,
@@ -125,7 +125,7 @@ In HTTPS mode, the node skips OpenVPN setup and the VPN guard passes preflight u
 3. Processes the `vpn` block:
    - Updates `vpn_required`, `vpn_interface_hint`,
      `vpn_check_interval_sec`, `vpn_probe_targets`.
-   - If `self_service_auto_vpn` is enabled and a profile is provided,
+   - If `node_auto_vpn` is enabled and a profile is provided,
      validates it for dangerous directives, writes it to disk, and starts
      an OpenVPN daemon (unless a tunnel is already active).
    - In HTTPS mode (`vpn.required = false`, `client_profile_ovpn = null`),
@@ -152,22 +152,22 @@ In HTTPS mode, the node skips OpenVPN setup and the VPN guard passes preflight u
 
 - **5xx responses**: Retried up to `max_retries` times.
 - **Transport errors** (`httpx.TransportError`): Retried.
-- **4xx responses**: Raised immediately as `SelfServiceError` (no retry).
+- **4xx responses**: Raised immediately as `NodeError` (no retry).
 - **Backoff**: `1s × 2^(attempt-1)` between attempts.
 
-After all retries are exhausted, a `SelfServiceError` is raised with the
+After all retries are exhausted, a `NodeError` is raised with the
 last exception as context.
 
 ## Cloud-Side Provisioning Order
 
-The cloud performs these steps during self-service:
+The cloud performs these steps during node provisioning:
 
 1. Read `connection_mode` from the token config (default `"vpn"`).
 2. Generate RS256 JWT keypair → store public key in `jwt_keys`.
 3. If VPN mode: derive VPN client identity → provision VPN cert → assemble `.ovpn`.
 4. If VPN mode and provisioning fails → delete JWT key → return error.
 5. If HTTPS mode: skip VPN provisioning entirely.
-6. Redeem self-service token via `prepare_qpu_device_from_bootstrap_token`.
+6. Redeem node token via `prepare_qpu_device_from_bootstrap_token`.
 7. Revoke any previous JWT key for this QPU.
 8. Return the full bundle (with `vpn.required = false` in HTTPS mode).
 

@@ -3,12 +3,12 @@
 Every request from the node to the Coda API (webhooks, heartbeats,
 reconnect) is authenticated with a short-lived JWT signed with an RSA
 private key.  The cloud verifies the signature using the corresponding
-public key registered during self-service provisioning.
+public key registered during node provisioning.
 
 Key concepts:
 
 * **KeyPair** -- an RSA keypair generated locally or received from the
-  self-service endpoint.
+  node endpoint.
 * **sign_token** -- creates a signed JWT for outbound requests.
 * **verify_token** / **verify_token_with_key** -- validate inbound JWTs
   (used primarily in tests and potential future inbound auth).

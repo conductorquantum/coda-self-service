@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from self_service.server.heartbeat import HeartbeatClient
+from coda_node.server.heartbeat import HeartbeatClient
 
 
 def _make_consumer(**overrides: object) -> MagicMock:
@@ -18,7 +18,7 @@ def _make_consumer(**overrides: object) -> MagicMock:
     return consumer
 
 
-@patch("self_service.server.heartbeat.sign_token", return_value="mock-jwt")
+@patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
 def test_send_posts_authenticated_payload(_mock_sign: MagicMock) -> None:
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
@@ -46,7 +46,7 @@ def test_send_posts_authenticated_payload(_mock_sign: MagicMock) -> None:
     assert body["redis_healthy"] is True
 
 
-@patch("self_service.server.heartbeat.sign_token", return_value="mock-jwt")
+@patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
 def test_send_includes_idle_state(_mock_sign: MagicMock) -> None:
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
@@ -75,7 +75,7 @@ def test_send_includes_idle_state(_mock_sign: MagicMock) -> None:
     assert body["redis_healthy"] is False
 
 
-@patch("self_service.server.heartbeat.sign_token", return_value="mock-jwt")
+@patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
 def test_send_includes_connectivity(_mock_sign: MagicMock) -> None:
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
@@ -99,7 +99,7 @@ def test_send_includes_connectivity(_mock_sign: MagicMock) -> None:
     assert body["connectivity"] == [[0, 1], [1, 2]]
 
 
-@patch("self_service.server.heartbeat.sign_token", return_value="mock-jwt")
+@patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
 def test_send_includes_directed_connectivity(_mock_sign: MagicMock) -> None:
     """Directed edges preserve (control, target) orientation in the payload."""
     mock_response = AsyncMock()
@@ -124,7 +124,7 @@ def test_send_includes_directed_connectivity(_mock_sign: MagicMock) -> None:
     assert body["connectivity"] == [[1, 0], [2, 1]]
 
 
-@patch("self_service.server.heartbeat.sign_token", return_value="mock-jwt")
+@patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
 def test_send_connectivity_none_when_not_provided(_mock_sign: MagicMock) -> None:
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
@@ -147,7 +147,7 @@ def test_send_connectivity_none_when_not_provided(_mock_sign: MagicMock) -> None
     assert body["connectivity"] is None
 
 
-@patch("self_service.server.heartbeat.sign_token", return_value="mock-jwt")
+@patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
 def test_run_loop_sends_and_stops(_mock_sign: MagicMock) -> None:
     """Verify the run loop sends at least one heartbeat then stops."""
     mock_response = AsyncMock()
@@ -180,7 +180,7 @@ def test_run_loop_sends_and_stops(_mock_sign: MagicMock) -> None:
     assert call_count >= 1
 
 
-@patch("self_service.server.heartbeat.sign_token", return_value="mock-jwt")
+@patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
 def test_send_failure_does_not_crash_loop(_mock_sign: MagicMock) -> None:
     """A failed heartbeat POST should be logged, not raised."""
     mock_http = AsyncMock()
@@ -210,7 +210,7 @@ def test_send_failure_does_not_crash_loop(_mock_sign: MagicMock) -> None:
     assert mock_http.post.call_count >= 1
 
 
-@patch("self_service.server.heartbeat.sign_token", return_value="mock-jwt")
+@patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
 def test_send_includes_extra_headers(_mock_sign: MagicMock) -> None:
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None

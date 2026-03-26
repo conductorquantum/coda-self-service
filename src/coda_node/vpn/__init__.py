@@ -1,4 +1,4 @@
-"""VPN tunnel management, health monitoring, and self-service provisioning.
+"""VPN tunnel management, health monitoring, and node provisioning.
 
 This package handles the full VPN lifecycle for a Coda-connected node:
 
@@ -12,7 +12,7 @@ This package handles the full VPN lifecycle for a Coda-connected node:
   daemon, and persist everything for future reconnects.
 """
 
-from self_service.vpn.guard import (
+from coda_node.vpn.guard import (
     ProbeResult,
     ServiceState,
     VPNGuard,
@@ -20,34 +20,34 @@ from self_service.vpn.guard import (
     detect_tun_interface,
     validate_key_permissions,
 )
-from self_service.vpn.service import (
+from coda_node.vpn.service import (
     OPENVPN_LOG_PATH,
     OPENVPN_PID_PATH,
-    SelfServiceError,
-    apply_self_service_bundle,
+    NodeError,
+    apply_node_bundle,
     connect_settings,
     ensure_persisted_vpn,
     fetch_reconnect_bundle,
-    fetch_self_service_bundle,
+    fetch_node_bundle,
     kill_openvpn_daemon,
-    self_service_settings,
+    node_settings,
 )
 
 __all__ = [
     "OPENVPN_LOG_PATH",
     "OPENVPN_PID_PATH",
     "ProbeResult",
-    "SelfServiceError",
+    "NodeError",
     "ServiceState",
     "VPNGuard",
     "VPNStatus",
-    "apply_self_service_bundle",
+    "apply_node_bundle",
     "connect_settings",
     "detect_tun_interface",
     "ensure_persisted_vpn",
     "fetch_reconnect_bundle",
-    "fetch_self_service_bundle",
+    "fetch_node_bundle",
     "kill_openvpn_daemon",
-    "self_service_settings",
+    "node_settings",
     "validate_key_permissions",
 ]

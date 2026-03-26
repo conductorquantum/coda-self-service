@@ -31,7 +31,7 @@ Where `clientIdentity` is:
 - `machine_fingerprint` if the client sends one (recommended).
 - The generated JWT key ID otherwise.
 
-This means two different self-service attempts for the same QPU (e.g.
+This means two different node provisioning attempts for the same QPU (e.g.
 from different physical machines) receive separate VPN credentials.
 
 ## Certificate Issuance Flow
@@ -99,7 +99,7 @@ before being returned in the connect response (via
 
 ## Security Properties
 
-- VPN credentials are **never stored in self-service tokens** — they
+- VPN credentials are **never stored in node tokens** — they
   are provisioned at connect time only.
 - VPN credentials are **never returned from token CRUD APIs** — they
   are stripped from both persistence and API responses.

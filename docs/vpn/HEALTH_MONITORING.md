@@ -133,7 +133,7 @@ VPNGuard(
 
 `vpn_probe_urls` is a computed property on `Settings` that falls back
 to `[connect_url, heartbeat_url]` when no explicit probe targets are
-configured. During self-service, the cloud sets `probe_targets` to
+configured. During node provisioning, the cloud sets `probe_targets` to
 `["{cloud_base_url}/api/internal/qpu/health"]`.
 
 ## VPN Health vs QPU Heartbeat

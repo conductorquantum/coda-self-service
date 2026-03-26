@@ -18,7 +18,7 @@ _DANGEROUS_OVPN_DIRECTIVES = frozenset({
 })
 ```
 
-If any directive is found, a `SelfServiceError` is raised with the
+If any directive is found, a `NodeError` is raised with the
 line number, and the profile is rejected. This prevents a compromised
 cloud from executing arbitrary code on the node host.
 
@@ -26,8 +26,8 @@ cloud from executing arbitrary code on the node host.
 
 Validated profiles are written to disk by `_write_vpn_profile()`:
 
-- Default path: `/tmp/coda-self-service.ovpn` (configurable via
-  `CODA_SELF_SERVICE_VPN_PROFILE_PATH`).
+- Default path: `/tmp/coda-node.ovpn` (configurable via
+  `CODA_NODE_VPN_PROFILE_PATH`).
 - Permissions: `0600` on POSIX systems.
 - The profile received from the cloud is plaintext (the cloud decodes
   base64 before returning it in the connect response).
@@ -43,13 +43,13 @@ behavior:
 ### POSIX (Linux/macOS)
 
 ```bash
-openvpn --config /tmp/coda-self-service.ovpn \
+openvpn --config /tmp/coda-node.ovpn \
         --daemon \
-        --writepid /tmp/coda-self-service-openvpn.pid \
-        --log /tmp/coda-self-service-openvpn.log
+        --writepid /tmp/coda-node-openvpn.pid \
+        --log /tmp/coda-node-openvpn.log
 ```
 
-Raises `SelfServiceError` if the command exits with a non-zero return
+Raises `NodeError` if the command exits with a non-zero return
 code.
 
 ### Windows
@@ -61,7 +61,7 @@ manually since `--writepid` behaves differently on Windows.
 ### Prerequisites
 
 The `openvpn` binary must be on `$PATH`. If not found,
-`SelfServiceError` is raised with instructions to install OpenVPN or
+`NodeError` is raised with instructions to install OpenVPN or
 disable auto VPN.
 
 ## Tunnel Detection
@@ -78,7 +78,7 @@ If the interface does not appear within the timeout:
 
 1. The last 20 lines of the OpenVPN log are captured.
 2. The daemon is killed via `kill_openvpn_daemon()`.
-3. A `SelfServiceError` is raised with the log tail for debugging.
+3. A `NodeError` is raised with the log tail for debugging.
 
 ## Interface Detection
 
@@ -114,17 +114,17 @@ On reconnect (`ensure_persisted_vpn()` in `vpn/service.py`):
 1. Checks for a persisted config file.
 2. If `vpn_required` is `False` (i.e. HTTPS connection mode), returns
    immediately — no VPN profile or daemon is needed.
-3. If `self_service_auto_vpn` is disabled, returns immediately.
+3. If `node_auto_vpn` is disabled, returns immediately.
 4. If the VPN profile file exists and no tunnel is currently active,
    starts the OpenVPN daemon and waits for the interface.
 5. If VPN is required but the profile is missing, raises
-   `SelfServiceError` telling the operator to re-provision with a new
+   `NodeError` telling the operator to re-provision with a new
    token.
 
 ## File Locations
 
 | File | Default Path | Purpose |
 |---|---|---|
-| VPN profile | `/tmp/coda-self-service.ovpn` | OpenVPN client configuration |
-| PID file | `/tmp/coda-self-service-openvpn.pid` | Managed daemon process ID |
-| Log file | `/tmp/coda-self-service-openvpn.log` | OpenVPN daemon log output |
+| VPN profile | `/tmp/coda-node.ovpn` | OpenVPN client configuration |
+| PID file | `/tmp/coda-node-openvpn.pid` | Managed daemon process ID |
+| Log file | `/tmp/coda-node-openvpn.log` | OpenVPN daemon log output |

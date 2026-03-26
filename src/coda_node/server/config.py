@@ -5,7 +5,7 @@ Configuration is resolved in three layers (highest priority first):
 1. **Environment variables** prefixed with ``CODA_`` (e.g.
    ``CODA_REDIS_URL``).
 2. **Persisted runtime config** written to ``/tmp/coda.config`` after a
-   successful self-service provisioning, so later restarts can reconnect
+   successful node provisioning, so later restarts can reconnect
    without a fresh token.
 3. **Hardcoded defaults** defined on :class:`Settings`.
 
@@ -26,7 +26,7 @@ from typing import Any
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from self_service.errors import ConfigError
+from coda_node.errors import ConfigError
 
 logger = logging.getLogger(__name__)
 
@@ -101,9 +101,9 @@ def load_persisted_runtime_config() -> dict[str, Any]:
         "vpn_check_interval_sec",
         "vpn_interface_hint",
         "vpn_probe_targets",
-        "self_service_auto_vpn",
-        "self_service_vpn_profile_path",
-        "self_service_machine_fingerprint",
+        "node_auto_vpn",
+        "node_vpn_profile_path",
+        "node_machine_fingerprint",
     ):
         if key in data:
             persisted[key] = data[key]
@@ -118,13 +118,13 @@ class Settings(BaseSettings):
     """Coda-connected node configuration.
 
     All fields can be set via ``CODA_``-prefixed environment variables
-    (e.g. ``CODA_QPU_ID``, ``CODA_REDIS_URL``).  When no self-service
+    (e.g. ``CODA_QPU_ID``, ``CODA_REDIS_URL``).  When no node
     token is provided, the model validator automatically loads any
     previously persisted runtime config so the node can reconnect with
     its stored JWT credentials.
 
     The model uses ``validate_assignment=True`` so that mutations made
-    by :func:`~self_service.vpn.service.apply_self_service_bundle` are
+    by :func:`~coda_node.vpn.service.apply_node_bundle` are
     validated against field types.
     """
 
@@ -152,16 +152,16 @@ class Settings(BaseSettings):
     vpn_interface_hint: str | None = None
     allow_degraded_startup: bool = False
 
-    self_service_token: str = ""
-    self_service_timeout_sec: int = 15
-    self_service_machine_fingerprint: str = ""
-    self_service_auto_vpn: bool = True
-    self_service_vpn_profile_path: str = (
-        f"{tempfile.gettempdir()}/coda-self-service.ovpn"
+    node_token: str = ""
+    node_timeout_sec: int = 15
+    node_machine_fingerprint: str = ""
+    node_auto_vpn: bool = True
+    node_vpn_profile_path: str = (
+        f"{tempfile.gettempdir()}/coda-node.ovpn"
     )
 
-    self_service_connect_headers: dict[str, str] = {}
-    self_service_connect_retries: int = 3
+    node_connect_headers: dict[str, str] = {}
+    node_connect_retries: int = 3
     shutdown_drain_timeout_sec: int = 30
     heartbeat_interval_sec: int = 30
 
@@ -179,7 +179,7 @@ class Settings(BaseSettings):
         """
         if not isinstance(data, dict):
             return data
-        if data.get("self_service_token"):
+        if data.get("node_token"):
             return data
 
         merged = dict(data)
@@ -201,19 +201,19 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
-    def check_jwt_or_self_service(self) -> Settings:
-        """Require JWT credentials unless self-service will supply them."""
+    def check_jwt_or_node_token(self) -> Settings:
+        """Require JWT credentials unless node will supply them."""
 
-        if not self.self_service_token:
+        if not self.node_token:
             if not self.jwt_private_key:
                 raise ValueError(
                     "CODA_JWT_PRIVATE_KEY must be set "
-                    "(or provide CODA_SELF_SERVICE_TOKEN for auto-provisioning)"
+                    "(or provide CODA_NODE_TOKEN for auto-provisioning)"
                 )
             if not self.jwt_key_id:
                 raise ValueError(
                     "CODA_JWT_KEY_ID must be set "
-                    "(or provide CODA_SELF_SERVICE_TOKEN for auto-provisioning)"
+                    "(or provide CODA_NODE_TOKEN for auto-provisioning)"
                 )
         return self
 
@@ -224,7 +224,7 @@ class Settings(BaseSettings):
 
     @property
     def connect_url(self) -> str:
-        """Full URL for the self-service connect endpoint."""
+        """Full URL for the node connect endpoint."""
         return f"{self.webapp_url}{self.connect_path}"
 
     @property

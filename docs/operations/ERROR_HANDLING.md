@@ -11,7 +11,7 @@ CodaError
 ├── ConfigError
 ├── AuthError
 ├── VPNError
-│   └── SelfServiceError
+│   └── NodeError
 ├── ExecutorError
 └── WebhookError
 ```
@@ -20,11 +20,11 @@ CodaError
 
 ### `CodaError`
 
-Base exception for all coda-self-service errors. Catch this to handle
+Base exception for all coda-node errors. Catch this to handle
 any expected operational error.
 
 ```python
-from self_service import CodaError
+from coda_node import CodaError
 ```
 
 ### `ConfigError`
@@ -54,12 +54,12 @@ VPN tunnel or health check failure.
 
 **Raised in:** `vpn/guard.py`
 
-### `SelfServiceError`
+### `NodeError`
 
-Self-service provisioning or reconnect failure. Subclass of `VPNError`.
+Node provisioning or reconnect failure. Subclass of `VPNError`.
 
 **Raised when:**
-- The self-service token is empty.
+- The node token is empty.
 - The connect HTTP request fails (after retries).
 - The cloud returns a 4xx error.
 - The connect response is missing required fields.
@@ -97,18 +97,18 @@ current webhook errors surface as `httpx.HTTPStatusError` or
 From the top-level package:
 
 ```python
-from self_service import CodaError
+from coda_node import CodaError
 ```
 
 From the errors module:
 
 ```python
-from self_service.errors import (
+from coda_node.errors import (
     AuthError,
     CodaError,
     ConfigError,
     ExecutorError,
-    SelfServiceError,
+    NodeError,
     VPNError,
     WebhookError,
 )
@@ -116,7 +116,7 @@ from self_service.errors import (
 
 ## Design Rationale
 
-- `SelfServiceError` inherits from `VPNError` because self-service
+- `NodeError` inherits from `VPNError` because node provisioning
   failures are most commonly VPN-related (profile provisioning,
   tunnel setup) and callers often want to catch both with a single
   clause.

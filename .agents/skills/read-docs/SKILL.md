@@ -15,6 +15,6 @@ Gather context from `docs/` before implementing or modifying a feature.
 ## Tips
 
 - Area `INDEX.md` files list the source files that implement each feature — use these to locate code quickly.
-- Cross-links between topic files connect related concepts (e.g. auth ↔ self-service ↔ VPN).
+- Cross-links between topic files connect related concepts (e.g. auth ↔ node ↔ VPN).
 - Cloud counterpart tables (where present) point to the corresponding cloud-side files and endpoints.
 - If a doc file references a config field or env var, the full reference is in the `configuration/` area.

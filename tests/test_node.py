@@ -1,4 +1,4 @@
-"""Tests for self-service provisioning and VPN tunnel setup."""
+"""Tests for node provisioning and VPN tunnel setup."""
 
 import json
 import os
@@ -9,26 +9,26 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from self_service.server.config import Settings
-from self_service.vpn.service import (
-    SelfServiceError,
+from coda_node.server.config import Settings
+from coda_node.vpn.service import (
+    NodeError,
     _post_connect,
     _start_openvpn,
     _validate_vpn_profile,
     _wait_for_tunnel,
-    apply_self_service_bundle,
+    apply_node_bundle,
     connect_settings,
     ensure_persisted_vpn,
     fetch_reconnect_bundle,
-    fetch_self_service_bundle,
+    fetch_node_bundle,
     kill_openvpn_daemon,
-    self_service_settings,
+    node_settings,
 )
 
 
 @pytest.fixture(autouse=True)
-def self_service_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "test-self-service-token")
+def node_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CODA_NODE_TOKEN", "test-node-token")
 
 
 def _sample_bundle() -> dict[str, object]:
@@ -60,32 +60,32 @@ def _sample_bundle() -> dict[str, object]:
     }
 
 
-class TestFetchSelfServiceBundle:
+class TestFetchNodeBundle:
     @pytest.mark.asyncio
     async def test_requires_token(self) -> None:
         settings = Settings()
         settings.jwt_private_key = "placeholder"
         settings.jwt_key_id = "placeholder"
-        settings.self_service_token = ""
-        with pytest.raises(SelfServiceError, match="self-service token is empty"):
-            await fetch_self_service_bundle(settings)
+        settings.node_token = ""
+        with pytest.raises(NodeError, match="node token is empty"):
+            await fetch_node_bundle(settings)
 
     @pytest.mark.asyncio
     async def test_fetches_bundle(self) -> None:
         settings = Settings()
-        settings.self_service_token = "self-service-token"
+        settings.node_token = "node-token"
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
         mock_response.json.return_value = _sample_bundle()
 
-        with patch("self_service.vpn.service.httpx.AsyncClient") as mock_client_cls:
+        with patch("coda_node.vpn.service.httpx.AsyncClient") as mock_client_cls:
             client = AsyncMock()
             client.post = AsyncMock(return_value=mock_response)
             client.__aenter__ = AsyncMock(return_value=client)
             client.__aexit__ = AsyncMock(return_value=False)
             mock_client_cls.return_value = client
 
-            bundle = await fetch_self_service_bundle(settings)
+            bundle = await fetch_node_bundle(settings)
 
         assert bundle["qpu_id"] == "cq-node-test"
         request_body = client.post.call_args.kwargs["json"]
@@ -99,18 +99,18 @@ class TestFetchSelfServiceBundle:
         settings = Settings()
         settings.jwt_private_key = "private-key"
         settings.jwt_key_id = "kid-123"
-        settings.self_service_token = ""
+        settings.node_token = ""
         settings.qpu_id = "cq-node-test"
-        settings.self_service_machine_fingerprint = "fingerprint-123"
+        settings.node_machine_fingerprint = "fingerprint-123"
         mock_response = MagicMock()
         mock_response.raise_for_status = MagicMock()
         mock_response.json.return_value = _sample_bundle()
 
         with (
             patch(
-                "self_service.vpn.service.sign_token", return_value="signed-jwt"
+                "coda_node.vpn.service.sign_token", return_value="signed-jwt"
             ) as mock_sign,
-            patch("self_service.vpn.service.httpx.AsyncClient") as mock_client_cls,
+            patch("coda_node.vpn.service.httpx.AsyncClient") as mock_client_cls,
         ):
             client = AsyncMock()
             client.post = AsyncMock(return_value=mock_response)
@@ -141,7 +141,7 @@ class TestPostConnectRetry:
     @pytest.mark.asyncio
     async def test_retries_on_5xx_then_succeeds(self) -> None:
         settings = Settings()
-        settings.self_service_token = "tok"
+        settings.node_token = "tok"
         settings.webapp_url = "https://example.com"
 
         error_response = MagicMock()
@@ -157,7 +157,7 @@ class TestPostConnectRetry:
         ok_response.raise_for_status = MagicMock()
         ok_response.json.return_value = {"ok": True}
 
-        with patch("self_service.vpn.service.httpx.AsyncClient") as mock_cls:
+        with patch("coda_node.vpn.service.httpx.AsyncClient") as mock_cls:
             client = AsyncMock()
             client.post = AsyncMock(side_effect=[error_response, ok_response])
             client.__aenter__ = AsyncMock(return_value=client)
@@ -165,7 +165,7 @@ class TestPostConnectRetry:
             mock_cls.return_value = client
 
             with patch(
-                "self_service.vpn.service.asyncio.sleep", new_callable=AsyncMock
+                "coda_node.vpn.service.asyncio.sleep", new_callable=AsyncMock
             ):
                 result = await _post_connect(
                     settings,
@@ -180,7 +180,7 @@ class TestPostConnectRetry:
     @pytest.mark.asyncio
     async def test_no_retry_on_4xx(self) -> None:
         settings = Settings()
-        settings.self_service_token = "tok"
+        settings.node_token = "tok"
         settings.webapp_url = "https://example.com"
 
         error_response = MagicMock()
@@ -192,14 +192,14 @@ class TestPostConnectRetry:
             )
         )
 
-        with patch("self_service.vpn.service.httpx.AsyncClient") as mock_cls:
+        with patch("coda_node.vpn.service.httpx.AsyncClient") as mock_cls:
             client = AsyncMock()
             client.post = AsyncMock(return_value=error_response)
             client.__aenter__ = AsyncMock(return_value=client)
             client.__aexit__ = AsyncMock(return_value=False)
             mock_cls.return_value = client
 
-            with pytest.raises(SelfServiceError, match="401"):
+            with pytest.raises(NodeError, match="401"):
                 await _post_connect(
                     settings,
                     auth_header="Bearer tok",
@@ -212,7 +212,7 @@ class TestPostConnectRetry:
     @pytest.mark.asyncio
     async def test_raises_after_retries_exhausted(self) -> None:
         settings = Settings()
-        settings.self_service_token = "tok"
+        settings.node_token = "tok"
         settings.webapp_url = "https://example.com"
 
         error_response = MagicMock()
@@ -224,7 +224,7 @@ class TestPostConnectRetry:
             )
         )
 
-        with patch("self_service.vpn.service.httpx.AsyncClient") as mock_cls:
+        with patch("coda_node.vpn.service.httpx.AsyncClient") as mock_cls:
             client = AsyncMock()
             client.post = AsyncMock(return_value=error_response)
             client.__aenter__ = AsyncMock(return_value=client)
@@ -232,8 +232,8 @@ class TestPostConnectRetry:
             mock_cls.return_value = client
 
             with (
-                patch("self_service.vpn.service.asyncio.sleep", new_callable=AsyncMock),
-                pytest.raises(SelfServiceError, match="after 2 attempts"),
+                patch("coda_node.vpn.service.asyncio.sleep", new_callable=AsyncMock),
+                pytest.raises(NodeError, match="after 2 attempts"),
             ):
                 await _post_connect(
                     settings,
@@ -245,16 +245,16 @@ class TestPostConnectRetry:
         assert client.post.call_count == 2
 
 
-class TestApplySelfServiceBundle:
+class TestApplyNodeBundle:
     @pytest.mark.asyncio
     async def test_applies_bundle_fields(self) -> None:
         settings = Settings()
-        settings.self_service_auto_vpn = False
+        settings.node_auto_vpn = False
         bundle = _sample_bundle()
         vpn = cast(dict[str, Any], bundle["vpn"])
         vpn["required"] = False
 
-        await apply_self_service_bundle(settings, bundle)
+        await apply_node_bundle(settings, bundle)
 
         assert settings.qpu_id == "cq-node-test"
         assert settings.jwt_key_id == "cq-node-test-key-001"
@@ -265,30 +265,30 @@ class TestApplySelfServiceBundle:
     @pytest.mark.asyncio
     async def test_accepts_qpu_label_field(self) -> None:
         settings = Settings()
-        settings.self_service_auto_vpn = False
+        settings.node_auto_vpn = False
         bundle = _sample_bundle()
         bundle.pop("qpu_display_name")
         bundle["qpu_label"] = "Label Node"
         vpn = cast(dict[str, Any], bundle["vpn"])
         vpn["required"] = False
 
-        await apply_self_service_bundle(settings, bundle)
+        await apply_node_bundle(settings, bundle)
 
         assert settings.qpu_display_name == "Label Node"
 
     @pytest.mark.asyncio
     async def test_reconnect_bundle_keeps_existing_private_key(self) -> None:
         settings = Settings()
-        settings.self_service_auto_vpn = False
+        settings.node_auto_vpn = False
         settings.jwt_private_key = "persisted-private-key"
         settings.jwt_key_id = "persisted-key-id"
-        settings.self_service_token = ""
+        settings.node_token = ""
         bundle = _sample_bundle()
         bundle.pop("jwt_private_key", None)
         vpn = cast(dict[str, Any], bundle["vpn"])
         vpn["required"] = False
 
-        await apply_self_service_bundle(settings, bundle)
+        await apply_node_bundle(settings, bundle)
 
         assert settings.jwt_private_key == "persisted-private-key"
         assert settings.jwt_key_id == "cq-node-test-key-001"
@@ -296,25 +296,25 @@ class TestApplySelfServiceBundle:
     @pytest.mark.asyncio
     async def test_requires_profile_when_vpn_required(self) -> None:
         settings = Settings()
-        settings.self_service_auto_vpn = False
-        with pytest.raises(SelfServiceError, match="VPN is required"):
-            await apply_self_service_bundle(settings, _sample_bundle())
+        settings.node_auto_vpn = False
+        with pytest.raises(NodeError, match="VPN is required"):
+            await apply_node_bundle(settings, _sample_bundle())
 
 
 class TestWaitForTunnel:
     @pytest.mark.asyncio
     async def test_returns_interface_immediately(self) -> None:
-        with patch("self_service.vpn.guard.detect_tun_interface", return_value="utun5"):
+        with patch("coda_node.vpn.guard.detect_tun_interface", return_value="utun5"):
             assert await _wait_for_tunnel(hint="utun5", timeout=1.0) == "utun5"
 
     @pytest.mark.asyncio
     async def test_kills_daemon_on_timeout(self) -> None:
         with (
-            patch("self_service.vpn.guard.detect_tun_interface", return_value=None),
-            patch("self_service.vpn.service._read_openvpn_log_tail", return_value=""),
-            patch("self_service.vpn.service.kill_openvpn_daemon") as mock_kill,
+            patch("coda_node.vpn.guard.detect_tun_interface", return_value=None),
+            patch("coda_node.vpn.service._read_openvpn_log_tail", return_value=""),
+            patch("coda_node.vpn.service.kill_openvpn_daemon") as mock_kill,
         ):
-            with pytest.raises(SelfServiceError):
+            with pytest.raises(NodeError):
                 await _wait_for_tunnel(timeout=0.1, poll_interval=0.05)
             mock_kill.assert_called_once()
 
@@ -326,16 +326,16 @@ class TestValidateVpnProfile:
         )
 
     def test_rejects_dangerous_directive(self) -> None:
-        with pytest.raises(SelfServiceError, match="forbidden directive"):
+        with pytest.raises(NodeError, match="forbidden directive"):
             _validate_vpn_profile(
                 "client\nremote vpn.example.com 1194\nup /bin/malicious\n"
             )
 
 
 class TestStartOpenvpn:
-    @patch("self_service.vpn.service.os.name", "nt")
-    @patch("self_service.vpn.service._openvpn_binary", return_value="openvpn.exe")
-    @patch("self_service.vpn.service.subprocess.Popen")
+    @patch("coda_node.vpn.service.os.name", "nt")
+    @patch("coda_node.vpn.service._openvpn_binary", return_value="openvpn.exe")
+    @patch("coda_node.vpn.service.subprocess.Popen")
     def test_windows_launch_writes_pid_file(
         self,
         mock_popen: MagicMock,
@@ -345,8 +345,8 @@ class TestStartOpenvpn:
     ) -> None:
         pid_path = tmp_path / "coda.pid"
         log_path = tmp_path / "coda.log"
-        monkeypatch.setattr("self_service.vpn.service.OPENVPN_PID_PATH", pid_path)
-        monkeypatch.setattr("self_service.vpn.service.OPENVPN_LOG_PATH", log_path)
+        monkeypatch.setattr("coda_node.vpn.service.OPENVPN_PID_PATH", pid_path)
+        monkeypatch.setattr("coda_node.vpn.service.OPENVPN_LOG_PATH", log_path)
         mock_popen.return_value = MagicMock(pid=4321)
 
         _start_openvpn("C:\\vpn\\client.ovpn")
@@ -359,45 +359,45 @@ class TestKillOpenvpnDaemon:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "self_service.vpn.service.OPENVPN_PID_PATH",
+            "coda_node.vpn.service.OPENVPN_PID_PATH",
             tmp_path / "missing.pid",
         )
         assert kill_openvpn_daemon() is False
 
-    @patch("self_service.vpn.service.os.name", "nt")
-    @patch("self_service.vpn.service.subprocess.run")
+    @patch("coda_node.vpn.service.os.name", "nt")
+    @patch("coda_node.vpn.service.subprocess.run")
     def test_windows_uses_taskkill(
         self, mock_run: MagicMock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         pid_file = tmp_path / "coda.pid"
         pid_file.write_text("1234")
-        monkeypatch.setattr("self_service.vpn.service.OPENVPN_PID_PATH", pid_file)
+        monkeypatch.setattr("coda_node.vpn.service.OPENVPN_PID_PATH", pid_file)
 
         assert kill_openvpn_daemon() is True
         mock_run.assert_called_once()
         assert not pid_file.exists()
 
 
-class TestSelfServiceSettings:
+class TestNodeSettings:
     @pytest.mark.asyncio
     async def test_cleanup_on_apply_failure(self) -> None:
         settings = Settings()
-        settings.self_service_token = "tok"
+        settings.node_token = "tok"
         with (
             patch(
-                "self_service.vpn.service.fetch_self_service_bundle",
+                "coda_node.vpn.service.fetch_node_bundle",
                 new_callable=AsyncMock,
                 return_value={"qpu_id": "a"},
             ),
             patch(
-                "self_service.vpn.service.apply_self_service_bundle",
+                "coda_node.vpn.service.apply_node_bundle",
                 new_callable=AsyncMock,
-                side_effect=SelfServiceError("bad bundle"),
+                side_effect=NodeError("bad bundle"),
             ),
-            patch("self_service.vpn.service.kill_openvpn_daemon") as mock_kill,
+            patch("coda_node.vpn.service.kill_openvpn_daemon") as mock_kill,
         ):
-            with pytest.raises(SelfServiceError, match="bad bundle"):
-                await self_service_settings(settings)
+            with pytest.raises(NodeError, match="bad bundle"):
+                await node_settings(settings)
             mock_kill.assert_called_once()
 
     @pytest.mark.asyncio
@@ -405,8 +405,8 @@ class TestSelfServiceSettings:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         settings = Settings()
-        settings.self_service_token = "tok"
-        settings.self_service_auto_vpn = False
+        settings.node_token = "tok"
+        settings.node_auto_vpn = False
         bundle = _sample_bundle()
         vpn = cast(dict[str, Any], bundle["vpn"])
         vpn["required"] = False
@@ -414,25 +414,25 @@ class TestSelfServiceSettings:
         config_path = tmp_path / "coda.config"
         key_path = tmp_path / "coda-private-key"
         monkeypatch.setattr(
-            "self_service.vpn.service.PERSISTED_CONFIG_PATH", config_path
+            "coda_node.vpn.service.PERSISTED_CONFIG_PATH", config_path
         )
         monkeypatch.setattr(
-            "self_service.vpn.service.PERSISTED_PRIVATE_KEY_PATH", key_path
+            "coda_node.vpn.service.PERSISTED_PRIVATE_KEY_PATH", key_path
         )
 
         with patch(
-            "self_service.vpn.service.fetch_self_service_bundle",
+            "coda_node.vpn.service.fetch_node_bundle",
             new_callable=AsyncMock,
             return_value=bundle,
         ):
-            await self_service_settings(settings)
+            await node_settings(settings)
 
         assert key_path.read_text() == bundle["jwt_private_key"]
         persisted = json.loads(config_path.read_text())
         assert persisted["qpu_id"] == "cq-node-test"
         assert persisted["jwt_private_key_path"] == str(key_path)
         assert persisted["connect_path"] == "/api/internal/qpu/connect"
-        assert persisted["self_service_machine_fingerprint"]
+        assert persisted["node_machine_fingerprint"]
         assert "advertised_provider" not in persisted
         if os.name != "nt":
             assert config_path.stat().st_mode & 0o777 == 0o600
@@ -443,9 +443,9 @@ class TestSelfServiceSettings:
         settings = Settings()
         settings.jwt_private_key = "persisted-private-key"
         settings.jwt_key_id = "persisted-key-id"
-        settings.self_service_token = ""
+        settings.node_token = ""
         settings.qpu_id = "cq-node-test"
-        settings.self_service_auto_vpn = False
+        settings.node_auto_vpn = False
         bundle = _sample_bundle()
         bundle.pop("jwt_private_key", None)
         vpn = cast(dict[str, Any], bundle["vpn"])
@@ -453,11 +453,11 @@ class TestSelfServiceSettings:
 
         with (
             patch(
-                "self_service.vpn.service.ensure_persisted_vpn",
+                "coda_node.vpn.service.ensure_persisted_vpn",
                 new_callable=AsyncMock,
             ) as mock_ensure_vpn,
             patch(
-                "self_service.vpn.service.fetch_reconnect_bundle",
+                "coda_node.vpn.service.fetch_reconnect_bundle",
                 new_callable=AsyncMock,
                 return_value=bundle,
             ) as mock_fetch,
@@ -477,27 +477,27 @@ class TestReconnectWorkflow:
         config_path.write_text("{}\n")
         if os.name != "nt":
             config_path.chmod(0o600)
-        profile_path = tmp_path / "coda-self-service.ovpn"
+        profile_path = tmp_path / "coda-node.ovpn"
         profile_path.write_text("client\nremote vpn.example.com 443\n")
 
         monkeypatch.setattr(
-            "self_service.vpn.service.PERSISTED_CONFIG_PATH", config_path
+            "coda_node.vpn.service.PERSISTED_CONFIG_PATH", config_path
         )
 
         settings = Settings()
         settings.jwt_private_key = "placeholder"
         settings.jwt_key_id = "placeholder"
-        settings.self_service_token = ""
-        settings.self_service_auto_vpn = True
+        settings.node_token = ""
+        settings.node_auto_vpn = True
         settings.vpn_required = True
-        settings.self_service_vpn_profile_path = str(profile_path)
+        settings.node_vpn_profile_path = str(profile_path)
         settings.vpn_interface_hint = "utun5"
 
         with (
-            patch("self_service.vpn.guard.detect_tun_interface", return_value=None),
-            patch("self_service.vpn.service._start_openvpn") as mock_start,
+            patch("coda_node.vpn.guard.detect_tun_interface", return_value=None),
+            patch("coda_node.vpn.service._start_openvpn") as mock_start,
             patch(
-                "self_service.vpn.service._wait_for_tunnel", new_callable=AsyncMock
+                "coda_node.vpn.service._wait_for_tunnel", new_callable=AsyncMock
             ) as mock_wait,
         ):
             await ensure_persisted_vpn(settings)

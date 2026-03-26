@@ -1,6 +1,6 @@
 # Credential Persistence
 
-After a successful self-service provisioning or reconnect, the node writes runtime
+After a successful node provisioning or reconnect, the node writes runtime
 state to disk so subsequent restarts can reconnect without a fresh
 token.
 
@@ -40,13 +40,13 @@ PERSISTED_PRIVATE_KEY_PATH = Path(tempfile.gettempdir()) / "coda-private-key"
   "vpn_check_interval_sec": 10,
   "vpn_interface_hint": null,
   "vpn_probe_targets": ["https://app.coda.example/api/internal/qpu/health"],
-  "self_service_auto_vpn": true,
-  "self_service_vpn_profile_path": "/tmp/coda-self-service.ovpn",
-  "self_service_machine_fingerprint": "hostname-12345"
+  "node_auto_vpn": true,
+  "node_vpn_profile_path": "/tmp/coda-node.ovpn",
+  "node_machine_fingerprint": "hostname-12345"
 }
 ```
 
-Executor-specific local settings are not part of the persisted self-service
+Executor-specific local settings are not part of the persisted node
 contract; they should be supplied explicitly via environment variables when
 needed.
 
@@ -59,7 +59,7 @@ needed.
 2. Serializes the runtime config to `PERSISTED_CONFIG_PATH` with `0600`
    permissions.
 
-This is called from `connect_settings()` after `apply_self_service_bundle()`
+This is called from `connect_settings()` after `apply_node_bundle()`
 succeeds.
 
 ## Read Path
@@ -75,7 +75,7 @@ succeeds.
 
 This is invoked by the `Settings` Pydantic model validator
 `merge_persisted_runtime_config()`, which runs at model construction
-time. It only applies persisted values when no `self_service_token` is
+time. It only applies persisted values when no `node_token` is
 set (to avoid overriding a fresh provisioning with stale state).
 
 ## Precedence Order

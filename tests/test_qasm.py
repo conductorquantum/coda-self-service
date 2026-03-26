@@ -11,8 +11,8 @@ import math
 
 import pytest
 
-from self_service.server.ir import GateOp, IRMetadata, NativeGate, NativeGateIR
-from self_service.server.qasm import (
+from coda_node.server.ir import GateOp, IRMetadata, NativeGate, NativeGateIR
+from coda_node.server.qasm import (
     QASMConversionError,
     ir_to_openqasm,
     openqasm_to_ir,

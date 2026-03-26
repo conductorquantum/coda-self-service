@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock
 import pytest
 import redis.asyncio as aioredis
 
-from self_service.server.consumer import RedisConsumer
-from self_service.server.executor import ExecutionResult
+from coda_node.server.consumer import RedisConsumer
+from coda_node.server.executor import ExecutionResult
 
 
 class MockRedis:

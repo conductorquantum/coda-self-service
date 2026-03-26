@@ -21,7 +21,7 @@ import math
 import re
 from datetime import UTC, datetime
 
-from self_service.server.ir import GateOp, IRMetadata, NativeGate, NativeGateIR
+from coda_node.server.ir import GateOp, IRMetadata, NativeGate, NativeGateIR
 
 
 class QASMConversionError(Exception):

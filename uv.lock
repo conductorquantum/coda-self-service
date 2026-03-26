@@ -143,7 +143,7 @@ wheels = [
 ]
 
 [[package]]
-name = "coda-self-service"
+name = "coda-node"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

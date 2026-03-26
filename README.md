@@ -1,4 +1,4 @@
-# coda-self-service
+# coda-node
 
 Production-ready runtime for connecting an execution backend to the Coda
 cloud platform.
@@ -9,7 +9,7 @@ Coda.
 
 ## What It Does
 
-- Provisions a node from a one-time self-service token
+- Provisions a node from a one-time node token
 - Reconnects on restart with persisted JWT credentials
 - Verifies and continuously monitors VPN connectivity
 - Sends periodic heartbeats to keep QPU status "online"
@@ -28,20 +28,20 @@ uv sync --dev
 Requires Python 3.11+.  Two equivalent CLI entry points are installed:
 
 - `coda`
-- `coda-self-service`
+- `coda-node`
 
 ## Quick Start
 
-Provision with a self-service token:
+Provision with a node token:
 
 ```bash
-uv run coda start --token <self-service-token>
+uv run coda start --token <node-token>
 ```
 
 Or set the token as an environment variable:
 
 ```bash
-export CODA_SELF_SERVICE_TOKEN=<self-service-token>
+export CODA_NODE_TOKEN=<node-token>
 uv run coda start
 ```
 
@@ -54,7 +54,7 @@ On startup the runtime:
 
 1. Loads configuration from `CODA_`-prefixed environment variables, then
    persisted state on disk, then hardcoded defaults.
-2. Connects to Coda using either a self-service token or persisted JWT
+2. Connects to Coda using either a node token or persisted JWT
    credentials (with exponential-backoff retry on transient failures).
 3. Brings up or validates VPN connectivity when required.
 4. Starts the FastAPI service, a background Redis Streams consumer, and
@@ -79,24 +79,24 @@ and `current_job` fields for observability.
 ## Configuration
 
 All settings are driven by `CODA_`-prefixed environment variables.  When
-no self-service token is provided, the runtime automatically loads
+no node token is provided, the runtime automatically loads
 previously persisted config from disk.
 
 ### Core
 
 | Variable | Default | Description |
 |---|---|---|
-| `CODA_SELF_SERVICE_TOKEN` | `""` | One-time self-service token for first-run provisioning. |
+| `CODA_NODE_TOKEN` | `""` | One-time node token for first-run provisioning. |
 | `CODA_JWT_PRIVATE_KEY` | `""` | PEM-encoded RSA private key for direct JWT startup. |
 | `CODA_JWT_KEY_ID` | `""` | `kid` header value for signed JWTs. |
 | `CODA_REDIS_URL` | `""` | Redis connection string (`redis://…`). |
-| `CODA_WEBAPP_URL` | `https://coda.conductorquantum.com` | Coda cloud base URL. Overridden by the self-service bundle on first connect. |
+| `CODA_WEBAPP_URL` | `https://coda.conductorquantum.com` | Coda cloud base URL. Overridden by the node bundle on first connect. |
 | `CODA_HOST` | `0.0.0.0` | Bind address for the FastAPI server. |
 | `CODA_PORT` | `8080` | Bind port for the FastAPI server. |
 | `CODA_EXECUTOR_FACTORY` | `""` | Import path for a custom executor (see below). |
 | `CODA_DEVICE_CONFIG` | `""` | Path to a YAML device config read by the executor factory. Defaults to `./site/device.yaml` if that file exists. |
 
-Provide either `CODA_SELF_SERVICE_TOKEN` for auto-provisioning, or both
+Provide either `CODA_NODE_TOKEN` for auto-provisioning, or both
 `CODA_JWT_PRIVATE_KEY` and `CODA_JWT_KEY_ID` for direct JWT startup.
 
 ### VPN
@@ -112,13 +112,13 @@ Provide either `CODA_SELF_SERVICE_TOKEN` for auto-provisioning, or both
 
 | Variable | Default | Description |
 |---|---|---|
-| `CODA_SELF_SERVICE_CONNECT_RETRIES` | `3` | Max attempts when connecting to the Coda cloud. |
+| `CODA_NODE_CONNECT_RETRIES` | `3` | Max attempts when connecting to the Coda cloud. |
 | `CODA_SHUTDOWN_DRAIN_TIMEOUT_SEC` | `30` | Seconds to wait for an in-flight job before forced shutdown. |
-| `CODA_SELF_SERVICE_TIMEOUT_SEC` | `15` | HTTP timeout for self-service connect requests. |
+| `CODA_NODE_TIMEOUT_SEC` | `15` | HTTP timeout for node connect requests. |
 
 ## Persisted State
 
-After a successful self-service provisioning the runtime writes:
+After successful node provisioning, the runtime writes:
 
 | File | Contents |
 |---|---|
@@ -138,7 +138,7 @@ To wipe persisted state, run `coda reset`.
 coda start [--token TOKEN] [--host HOST] [--port PORT] [--daemon]
 ```
 
-Start the node server.  Pass `--token` on first run for self-service
+Start the node server.  Pass `--token` on first run for node
 provisioning.  Use `--daemon` (or `-d`) to run as a background process.
 
 ```
@@ -204,8 +204,8 @@ either:
 ### Example: Custom Executor
 
 ```python
-from self_service.server.executor import ExecutionResult
-from self_service.server.ir import NativeGateIR
+from coda_node.server.executor import ExecutionResult
+from coda_node.server.ir import NativeGateIR
 
 
 class MyExecutor:
@@ -239,15 +239,15 @@ distinguish expected operational errors from unexpected bugs:
 | `ConfigError` | Invalid or missing configuration. |
 | `AuthError` | JWT signing or verification failure. |
 | `VPNError` | VPN tunnel or health check failure. |
-| `SelfServiceError` | Self-service provisioning or reconnect failure. |
+| `NodeError` | Node provisioning or reconnect failure. |
 | `ExecutorError` | Executor loading or job execution failure. |
 | `WebhookError` | Webhook delivery failure. |
 
 Import from the top-level package:
 
 ```python
-from self_service import CodaError
-from self_service.errors import ConfigError, VPNError
+from coda_node import CodaError
+from coda_node.errors import ConfigError, VPNError
 ```
 
 ## Development
@@ -263,7 +263,7 @@ Run the full quality check suite:
 ```bash
 uv run ruff check .
 uv run ruff format --check .
-uv run mypy src/self_service
+uv run mypy src/coda_node
 uv build
 uv run pytest --cov --cov-report=term-missing
 ```
@@ -273,7 +273,7 @@ Run the opt-in live smoke tests against
 
 ```bash
 export CODA_RUN_E2E=1
-export CODA_E2E_SELF_SERVICE_TOKEN=<self-service-token>
+export CODA_E2E_NODE_TOKEN=<node-token>
 uv run pytest -m e2e
 ```
 
@@ -302,6 +302,6 @@ uv run pre-commit run --all-files
 - **Pydantic Settings** -- environment-driven configuration with layered
   defaults and persisted state
 - **Redis Streams** -- job delivery with consumer groups and crash recovery
-- **httpx** -- async HTTP for webhooks and self-service API calls
+- **httpx** -- async HTTP for webhooks and node API calls
 - **RS256 JWT** -- authentication between the node and the Coda cloud
 - **OpenVPN** -- managed as a subprocess when VPN connectivity is required

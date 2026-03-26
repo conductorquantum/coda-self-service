@@ -1,4 +1,4 @@
-"""Shared exception hierarchy for coda-self-service.
+"""Shared exception hierarchy for coda-node.
 
 All domain-specific exceptions inherit from :class:`CodaError` so that
 callers can distinguish expected operational errors from unexpected bugs
@@ -10,14 +10,14 @@ __all__ = [
     "CodaError",
     "ConfigError",
     "ExecutorError",
-    "SelfServiceError",
+    "NodeError",
     "VPNError",
     "WebhookError",
 ]
 
 
 class CodaError(Exception):
-    """Base exception for all coda-self-service errors."""
+    """Base exception for all coda-node errors."""
 
 
 class ConfigError(CodaError):
@@ -32,8 +32,8 @@ class VPNError(CodaError):
     """VPN tunnel or health check failure."""
 
 
-class SelfServiceError(VPNError):
-    """Self-service provisioning or reconnect failure."""
+class NodeError(VPNError):
+    """Node provisioning or reconnect failure."""
 
 
 class ExecutorError(CodaError):

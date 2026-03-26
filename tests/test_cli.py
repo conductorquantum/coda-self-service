@@ -11,9 +11,9 @@ from unittest.mock import MagicMock
 import pytest
 import uvicorn
 
-from self_service.server import cli
-from self_service.server import config as config_module
-from self_service.server import daemon as daemon_module
+from coda_node.server import cli
+from coda_node.server import config as config_module
+from coda_node.server import daemon as daemon_module
 
 
 def test_build_parser_supports_start_flags() -> None:
@@ -22,7 +22,7 @@ def test_build_parser_supports_start_flags() -> None:
     )
 
     assert args.command == "start"
-    assert args.self_service_token == "test-token"
+    assert args.node_token == "test-token"
     assert args.port == 9000
 
 
@@ -32,7 +32,7 @@ def test_build_parser_supports_explicit_start_short_flags() -> None:
     )
 
     assert args.command == "start"
-    assert args.self_service_token == "test-token"
+    assert args.node_token == "test-token"
     assert args.host == "127.0.0.1"
 
 
@@ -59,11 +59,11 @@ def test_main_runs_server_with_start_subcommand(
     cli.main()
     output = capsys.readouterr().out
 
-    assert fake_env["CODA_SELF_SERVICE_TOKEN"] == "token-value"
+    assert fake_env["CODA_NODE_TOKEN"] == "token-value"
     assert "C O D A  ·  N O D E" in output
     assert "MODE" in output
     mock_run.assert_called_once_with(
-        "self_service.server.app:app",
+        "coda_node.server.app:app",
         host="0.0.0.0",
         port=8080,
         reload=False,
@@ -86,7 +86,7 @@ def test_main_resets_persisted_runtime_files(
         json.dumps(
             {
                 "jwt_private_key_path": str(key_path),
-                "self_service_vpn_profile_path": str(profile_path),
+                "node_vpn_profile_path": str(profile_path),
             }
         )
     )
@@ -144,7 +144,7 @@ def test_doctor_loads_persisted_runtime_without_recursing(
     monkeypatch.setattr(config_module, "PERSISTED_PRIVATE_KEY_PATH", key_path)
     monkeypatch.setenv("CODA_JWT_PRIVATE_KEY", "")
     monkeypatch.setenv("CODA_JWT_KEY_ID", "")
-    monkeypatch.delenv("CODA_SELF_SERVICE_TOKEN", raising=False)
+    monkeypatch.delenv("CODA_NODE_TOKEN", raising=False)
     monkeypatch.delenv("CODA_WEBAPP_URL", raising=False)
     monkeypatch.delenv("CODA_REDIS_URL", raising=False)
     monkeypatch.setattr(shutil, "which", MagicMock(return_value=None))
@@ -209,7 +209,7 @@ def test_start_daemon_mode(
             return_value=MagicMock(
                 host="127.0.0.1",
                 port=9000,
-                self_service_token="test-token",
+                node_token="test-token",
                 webapp_url="https://test.example.com",
             )
         ),

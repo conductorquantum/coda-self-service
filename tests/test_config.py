@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from self_service.server import config as config_module
-from self_service.server.config import Settings
+from coda_node.server import config as config_module
+from coda_node.server.config import Settings
 
 
 @pytest.fixture(autouse=True)
@@ -25,8 +25,8 @@ class TestSettings:
         assert settings.qpu_id == ""
         assert settings.qpu_display_name == ""
         assert settings.port == 8080
-        assert settings.self_service_token == ""
-        assert settings.self_service_auto_vpn is True
+        assert settings.node_token == ""
+        assert settings.node_auto_vpn is True
         assert settings.advertised_provider == "coda"
         assert settings.connect_path == "/api/internal/qpu/connect"
         assert settings.webapp_url == "https://coda.conductorquantum.com"
@@ -62,33 +62,33 @@ class TestSettings:
     def test_custom_values(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("CODA_QPU_ID", "custom-node")
         monkeypatch.setenv("CODA_PORT", "9090")
-        monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "token")
+        monkeypatch.setenv("CODA_NODE_TOKEN", "token")
         monkeypatch.setenv("CODA_WEBAPP_URL", "https://example.test")
         monkeypatch.setenv("CODA_EXECUTOR_FACTORY", "pkg.module:create_executor")
         settings = Settings()
         assert settings.qpu_id == "custom-node"
         assert settings.port == 9090
-        assert settings.self_service_token == "token"
+        assert settings.node_token == "token"
         assert settings.webapp_url == "https://example.test"
         assert settings.executor_factory == "pkg.module:create_executor"
 
-    def test_empty_jwt_without_self_service_raises(
+    def test_empty_jwt_without_node_token_raises(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("CODA_JWT_PRIVATE_KEY", "")
         monkeypatch.setenv("CODA_JWT_KEY_ID", "")
-        monkeypatch.delenv("CODA_SELF_SERVICE_TOKEN", raising=False)
+        monkeypatch.delenv("CODA_NODE_TOKEN", raising=False)
         with pytest.raises(Exception, match="CODA_JWT_PRIVATE_KEY must be set"):
             Settings()
 
-    def test_empty_jwt_with_self_service_is_allowed(
+    def test_empty_jwt_with_node_token_is_allowed(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("CODA_JWT_PRIVATE_KEY", "")
         monkeypatch.setenv("CODA_JWT_KEY_ID", "")
-        monkeypatch.setenv("CODA_SELF_SERVICE_TOKEN", "self-service-token")
+        monkeypatch.setenv("CODA_NODE_TOKEN", "node-token")
         settings = Settings()
-        assert settings.self_service_token == "self-service-token"
+        assert settings.node_token == "node-token"
 
     def test_loads_persisted_runtime_config(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
@@ -120,7 +120,7 @@ class TestSettings:
                         "https://persisted.example.test/api/internal/qpu/health"
                     ],
                     "advertised_provider": "legacy-provider",
-                    "self_service_machine_fingerprint": "persisted-fingerprint",
+                    "node_machine_fingerprint": "persisted-fingerprint",
                 }
             )
             + "\n"
@@ -132,7 +132,7 @@ class TestSettings:
         monkeypatch.setattr(config_module, "PERSISTED_PRIVATE_KEY_PATH", key_path)
         monkeypatch.setenv("CODA_JWT_PRIVATE_KEY", "")
         monkeypatch.setenv("CODA_JWT_KEY_ID", "")
-        monkeypatch.delenv("CODA_SELF_SERVICE_TOKEN", raising=False)
+        monkeypatch.delenv("CODA_NODE_TOKEN", raising=False)
 
         settings = Settings()
 
@@ -142,7 +142,7 @@ class TestSettings:
         assert settings.jwt_private_key.startswith("-----BEGIN PRIVATE KEY-----")
         assert settings.redis_url == "rediss://default:token@persisted:6379"
         assert settings.connect_path == "/api/internal/qpu/connect"
-        assert settings.self_service_machine_fingerprint == "persisted-fingerprint"
+        assert settings.node_machine_fingerprint == "persisted-fingerprint"
         assert settings.advertised_provider == "coda"
         assert settings.vpn_probe_targets == [
             "https://persisted.example.test/api/internal/qpu/health"

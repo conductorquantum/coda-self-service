@@ -9,8 +9,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from self_service.server.app import _resolve_connectivity
-from self_service.vpn import ServiceState
+from coda_node.server.app import _resolve_connectivity
+from coda_node.vpn import ServiceState
 
 
 @contextmanager

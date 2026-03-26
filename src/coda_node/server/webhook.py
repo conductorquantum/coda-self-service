@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from self_service.server.auth import sign_token
+from coda_node.server.auth import sign_token
 
 logger = logging.getLogger(__name__)
 

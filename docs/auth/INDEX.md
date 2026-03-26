@@ -3,7 +3,7 @@
 All communication between the node and the Coda cloud is authenticated
 with RS256 JWTs. The node signs tokens with its private key; the cloud
 verifies them with the corresponding public key registered during
-self-service provisioning.
+node provisioning.
 
 ## Topics
 
@@ -16,7 +16,7 @@ self-service provisioning.
 
 | File | Role |
 |---|---|
-| `src/self_service/server/auth.py` | `sign_token()`, `verify_token()`, `verify_token_with_key()`, `generate_keypair()`, `KeyPair`. |
+| `src/coda_node/server/auth.py` | `sign_token()`, `verify_token()`, `verify_token_with_key()`, `generate_keypair()`, `KeyPair`. |
 
 ## Where JWTs Are Used
 

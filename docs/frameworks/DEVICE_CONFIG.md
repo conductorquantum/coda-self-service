@@ -2,11 +2,11 @@
 
 `CODA_DEVICE_CONFIG` points to a YAML file that describes the hardware
 setup.  The file's schema and validation are owned entirely by the backend
-package, not by `coda-self-service`.
+package, not by `coda-node`.
 
 ## How It Works
 
-`coda-self-service` stores `CODA_DEVICE_CONFIG` as a plain string on
+`coda-node` stores `CODA_DEVICE_CONFIG` as a plain string on
 `Settings.device_config`.  It does not parse, validate, or interpret
 the file.  The executor factory reads `settings.device_config`, loads
 the YAML, and builds the executor from it.
@@ -28,7 +28,7 @@ host: 192.168.1.120
 port: 9095
 ```
 
-The schema is defined by the backend package, not by `coda-self-service`.
+The schema is defined by the backend package, not by `coda-node`.
 Each backend defines its own YAML schema and Pydantic model.
 
 ### Running
@@ -47,7 +47,7 @@ uv run coda start --token <your-token>
 ## Path Resolution
 
 Paths inside the YAML file (e.g. `calibration_path`) are resolved by
-the backend package, not by `coda-self-service`.  Typically they are
+the backend package, not by `coda-node`.  Typically they are
 relative to the YAML file's parent directory.
 
 ## Writing a Device Config for a New Backend

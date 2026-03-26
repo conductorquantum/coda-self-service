@@ -1,6 +1,6 @@
 # Executor Factory Convention
 
-Backend packages integrate with `coda-self-service` by exposing a
+Backend packages integrate with `coda-node` by exposing a
 factory function at a conventional module path.  This replaces the
 older `Framework` protocol and entry-point discovery system.
 
@@ -48,8 +48,8 @@ class MyConfig(BaseModel):
 
 ```python
 # my_backend/runner.py
-from self_service.server.executor import ExecutionResult
-from self_service.server.ir import NativeGateIR
+from coda_node.server.executor import ExecutionResult
+from coda_node.server.ir import NativeGateIR
 
 
 class MyRunner:
@@ -70,7 +70,7 @@ class MyRunner:
 
 ```python
 # my_backend/executor_factory.py
-from self_service.errors import ExecutorError
+from coda_node.errors import ExecutorError
 from my_backend.config import MyConfig
 from my_backend.runner import MyRunner
 
@@ -117,12 +117,12 @@ uv run coda start --token <token>
 
 ## Key Points
 
-- `coda-self-service` never imports or depends on your backend package
+- `coda-node` never imports or depends on your backend package
   directly.
-- The `NativeGateIR` schema in `self_service.server.ir` is the shared
+- The `NativeGateIR` schema in `coda_node.server.ir` is the shared
   contract between the cloud and all backends.
 - Device config schemas are owned by each backend, not by
-  `coda-self-service`.
+  `coda-node`.
 - Auto-discovery uses `importlib.metadata.packages_distributions()` and
   `importlib.util.find_spec()` -- it does not require entry points or
   any registration step beyond following the naming convention.
