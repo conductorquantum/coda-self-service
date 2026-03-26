@@ -206,9 +206,7 @@ class TestDefaultDeviceConfig:
         )
 
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setenv(
-            "CODA_EXECUTOR_FACTORY", "env.module:create_executor"
-        )
+        monkeypatch.setenv("CODA_EXECUTOR_FACTORY", "env.module:create_executor")
         settings = Settings()
 
         assert settings.executor_factory == "env.module:create_executor"

@@ -144,7 +144,9 @@ def _load_executor_factory_from_device_config(path: str) -> str:
                 value = value[1:-1]
             return value.strip()
     except OSError:
-        logger.warning("Failed to read device config while resolving executor factory: %s", path)
+        logger.warning(
+            "Failed to read device config while resolving executor factory: %s", path
+        )
     return ""
 
 
