@@ -50,15 +50,18 @@ service to boot for integration testing without hardware.
 
 1. **`CODA_EXECUTOR_FACTORY`** -- explicit `module:attribute` import
    path (see [Custom Executor](#custom-executor) below).
-2. **Convention-based auto-discovery** -- scan installed packages for
+2. **`executor_factory` in `CODA_DEVICE_CONFIG`** -- optional top-level
+   YAML fallback when the env var is unset.
+3. **Convention-based auto-discovery** -- scan installed packages for
    `<pkg>.executor_factory:create_executor`.  If exactly one match is
    found, use it.  If multiple match, warn and fall back to noop.
-3. **`NoopExecutor`** fallback -- deterministic all-zeros results.
+4. **`NoopExecutor`** fallback -- deterministic all-zeros results.
 
 ## Auto-Discovery
 
-When `CODA_EXECUTOR_FACTORY` is not set, the runtime scans all installed
-top-level Python packages for the naming convention:
+When neither `CODA_EXECUTOR_FACTORY` nor the device config's
+`executor_factory` key is set, the runtime scans all installed top-level
+Python packages for the naming convention:
 
 ```
 <package>.executor_factory:create_executor

@@ -6,10 +6,15 @@ package, not by `coda-node`.
 
 ## How It Works
 
-`coda-node` stores `CODA_DEVICE_CONFIG` as a plain string on
-`Settings.device_config`.  It does not parse, validate, or interpret
-the file.  The executor factory reads `settings.device_config`, loads
-the YAML, and builds the executor from it.
+`coda-node` stores `CODA_DEVICE_CONFIG` on `Settings.device_config`.
+It still leaves schema validation to the backend package, but it now
+recognizes one optional top-level key itself:
+
+- `executor_factory` -- fallback `module:attribute` import path used when
+  `CODA_EXECUTOR_FACTORY` is unset.
+
+All other keys remain backend-owned. The executor factory reads
+`settings.device_config`, loads the YAML, and builds the executor from it.
 
 ### Default Path
 
@@ -22,6 +27,7 @@ info message.  Explicit `CODA_DEVICE_CONFIG` always takes precedence.
 ### Sample device config (`site/device.yaml`)
 
 ```yaml
+executor_factory: coda_qubic.executor_factory:create_executor
 target: cz
 num_qubits: 5
 host: 192.168.1.120
@@ -42,6 +48,13 @@ Or, if `./site/device.yaml` exists, simply:
 
 ```bash
 uv run coda start --token <your-token>
+```
+
+To keep the executor choice with the device config instead of the shell
+environment:
+
+```yaml
+executor_factory: my_project.executor_factory:create_executor
 ```
 
 ## Path Resolution

@@ -180,3 +180,35 @@ class TestDefaultDeviceConfig:
         monkeypatch.setenv("CODA_DEVICE_CONFIG", "/explicit/path.yaml")
         settings = Settings()
         assert settings.device_config == "/explicit/path.yaml"
+
+    def test_executor_factory_can_come_from_device_config(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        site_dir = tmp_path / "site"
+        site_dir.mkdir()
+        (site_dir / "device.yaml").write_text(
+            'target: test\nexecutor_factory: "pkg.module:create_executor"\n'
+        )
+
+        monkeypatch.chdir(tmp_path)
+        settings = Settings()
+
+        assert settings.device_config == "site/device.yaml"
+        assert settings.executor_factory == "pkg.module:create_executor"
+
+    def test_env_executor_factory_overrides_device_config(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        site_dir = tmp_path / "site"
+        site_dir.mkdir()
+        (site_dir / "device.yaml").write_text(
+            "target: test\nexecutor_factory: pkg.module:create_executor\n"
+        )
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv(
+            "CODA_EXECUTOR_FACTORY", "env.module:create_executor"
+        )
+        settings = Settings()
+
+        assert settings.executor_factory == "env.module:create_executor"

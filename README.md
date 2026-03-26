@@ -93,8 +93,8 @@ previously persisted config from disk.
 | `CODA_WEBAPP_URL` | `https://coda.conductorquantum.com` | Coda cloud base URL. Overridden by the node bundle on first connect. |
 | `CODA_HOST` | `0.0.0.0` | Bind address for the FastAPI server. |
 | `CODA_PORT` | `8080` | Bind port for the FastAPI server. |
-| `CODA_EXECUTOR_FACTORY` | `""` | Import path for a custom executor (see below). |
-| `CODA_DEVICE_CONFIG` | `""` | Path to a YAML device config read by the executor factory. Defaults to `./site/device.yaml` if that file exists. |
+| `CODA_EXECUTOR_FACTORY` | `""` | Import path for a custom executor (see below). Highest priority when set. |
+| `CODA_DEVICE_CONFIG` | `""` | Path to a YAML device config read by the executor factory. Defaults to `./site/device.yaml` if that file exists. The runtime also looks for an optional top-level `executor_factory` key in this file when `CODA_EXECUTOR_FACTORY` is unset. |
 
 Provide either `CODA_NODE_TOKEN` for auto-provisioning, or both
 `CODA_JWT_PRIVATE_KEY` and `CODA_JWT_KEY_ID` for direct JWT startup.
@@ -184,10 +184,12 @@ Stop the daemon and VPN, then remove all persisted runtime files.
 
 1. **`CODA_EXECUTOR_FACTORY`** (explicit) -- set to a `module:attribute`
    import path to force a specific executor factory.
-2. **Convention-based auto-discovery** -- scan installed packages for
+2. **`executor_factory` in `CODA_DEVICE_CONFIG`** -- optional top-level YAML
+   key used when the env var is unset.
+3. **Convention-based auto-discovery** -- scan installed packages for
    `<pkg>.executor_factory:create_executor`.  If exactly one match is
    found, use it.  If multiple match, log a warning and fall back.
-3. **`NoopExecutor`** fallback -- returns deterministic all-zeros results,
+4. **`NoopExecutor`** fallback -- returns deterministic all-zeros results,
    allowing the service to boot without hardware integration.
 
 ### Factory Convention

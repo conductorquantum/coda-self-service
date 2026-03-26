@@ -9,10 +9,12 @@ Executor resolution order (in :func:`load_executor`):
 1. If ``CODA_EXECUTOR_FACTORY`` is set, import the dotted path and use
    it as either a pre-built executor instance (has ``.run``) or a
    factory callable.
-2. Scan installed packages for the convention
+2. If ``settings.device_config`` provides an ``executor_factory`` value,
+   use that.
+3. Scan installed packages for the convention
    ``<pkg>.executor_factory:create_executor``.  If exactly one match is
    found, use it automatically.  If multiple match, warn and fall back.
-3. Fall back to :class:`NoopExecutor`, which returns a deterministic
+4. Fall back to :class:`NoopExecutor`, which returns a deterministic
    all-zeros bitstring for every job.
 """
 
@@ -159,10 +161,12 @@ def load_executor(settings: Settings) -> JobExecutor:
 
     1. If ``settings.executor_factory`` is set, import and use it
        (pre-built executor or factory callable).
-    2. Scan installed packages for a conventional
+    2. If ``settings.device_config`` provides an ``executor_factory``
+       value, import and use it.
+    3. Scan installed packages for a conventional
        ``<pkg>.executor_factory:create_executor`` factory.  Use it if
        exactly one match is found; warn and skip if multiple match.
-    3. Fall back to :class:`NoopExecutor` with a warning.
+    4. Fall back to :class:`NoopExecutor` with a warning.
 
     Args:
         settings: Runtime settings.

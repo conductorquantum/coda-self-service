@@ -37,10 +37,12 @@ exposes: <pkg>.executor_factory:create_executor
 
 1. **`CODA_EXECUTOR_FACTORY`** -- explicit `module:attribute` import
    path (takes precedence over everything).
-2. **Convention-based auto-discovery** -- scan installed packages for
+2. **`executor_factory` in `CODA_DEVICE_CONFIG`** -- optional top-level
+   YAML fallback when the env var is unset.
+3. **Convention-based auto-discovery** -- scan installed packages for
    `<pkg>.executor_factory:create_executor`.  Use the factory if
    exactly one match is found.
-3. **`NoopExecutor`** fallback -- deterministic all-zeros results for
+4. **`NoopExecutor`** fallback -- deterministic all-zeros results for
    testing without hardware.
 
 ## Cross-References

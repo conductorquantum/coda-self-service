@@ -62,8 +62,8 @@ Complete field reference for the `Settings` class in
 
 | Field | Type | Default | Env Var | Description |
 |---|---|---|---|---|
-| `executor_factory` | `str` | `""` | `CODA_EXECUTOR_FACTORY` | Import path for a custom executor factory (`module:attr` format). When unset, the runtime auto-discovers factories. See [Executor Factory Convention](../frameworks/FRAMEWORK_PROTOCOL.md). |
-| `device_config` | `str` | `""` | `CODA_DEVICE_CONFIG` | Path to a YAML device configuration file, read by the executor factory. Defaults to `./site/device.yaml` if that file exists. See [Device Configuration](../frameworks/DEVICE_CONFIG.md). |
+| `executor_factory` | `str` | `""` | `CODA_EXECUTOR_FACTORY` | Import path for a custom executor factory (`module:attr` format). When unset, the runtime falls back to the device config's top-level `executor_factory` key before auto-discovery. See [Executor Factory Convention](../frameworks/FRAMEWORK_PROTOCOL.md). |
+| `device_config` | `str` | `""` | `CODA_DEVICE_CONFIG` | Path to a YAML device configuration file, read by the executor factory. Defaults to `./site/device.yaml` if that file exists. The runtime also reads an optional top-level `executor_factory` key from this file when the env var is unset. See [Device Configuration](../frameworks/DEVICE_CONFIG.md). |
 | `advertised_provider` | `str` | `"coda"` | `CODA_ADVERTISED_PROVIDER` | Legacy local metadata field. Not used by the node connect handshake. |
 
 ## Heartbeat

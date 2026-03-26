@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import stat
 import tempfile
 from pathlib import Path
@@ -29,6 +30,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from coda_node.errors import ConfigError
 
 logger = logging.getLogger(__name__)
+_EXECUTOR_FACTORY_RE = re.compile(r"^executor_factory\s*:\s*(.+?)\s*$")
 
 __all__ = [
     "PERSISTED_CONFIG_PATH",
@@ -114,6 +116,38 @@ def load_persisted_runtime_config() -> dict[str, Any]:
     return persisted
 
 
+def _strip_inline_yaml_comment(value: str) -> str:
+    """Remove trailing comments from a simple scalar YAML value."""
+    in_single = False
+    in_double = False
+    for idx, char in enumerate(value):
+        if char == "'" and not in_double:
+            in_single = not in_single
+        elif char == '"' and not in_single:
+            in_double = not in_double
+        elif char == "#" and not in_single and not in_double:
+            return value[:idx].rstrip()
+    return value.strip()
+
+
+def _load_executor_factory_from_device_config(path: str) -> str:
+    """Read an optional top-level ``executor_factory`` scalar from device YAML."""
+    try:
+        for raw_line in Path(path).read_text().splitlines():
+            if raw_line.startswith((" ", "\t")):
+                continue
+            match = _EXECUTOR_FACTORY_RE.match(raw_line.strip())
+            if not match:
+                continue
+            value = _strip_inline_yaml_comment(match.group(1))
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+                value = value[1:-1]
+            return value.strip()
+    except OSError:
+        logger.warning("Failed to read device config while resolving executor factory: %s", path)
+    return ""
+
+
 class Settings(BaseSettings):
     """Coda-connected node configuration.
 
@@ -196,6 +230,22 @@ class Settings(BaseSettings):
             if default_path.exists():
                 logger.info("Using default device config: %s", default_path)
                 self.device_config = default_path.as_posix()
+        return self
+
+    @model_validator(mode="after")
+    def apply_device_config_executor_factory(self) -> Settings:
+        """Use ``executor_factory`` from the device config when env/config omit it."""
+        if self.executor_factory or not self.device_config:
+            return self
+
+        resolved = _load_executor_factory_from_device_config(self.device_config)
+        if resolved:
+            logger.info(
+                "Using executor factory from device config %s: %s",
+                self.device_config,
+                resolved,
+            )
+            self.executor_factory = resolved
         return self
 
     @model_validator(mode="after")

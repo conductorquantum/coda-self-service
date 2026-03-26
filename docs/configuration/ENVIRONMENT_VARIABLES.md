@@ -19,8 +19,8 @@ including type coercion for booleans, integers, and lists.
 |---|---|---|
 | `CODA_HOST` | `0.0.0.0` | Bind address. |
 | `CODA_PORT` | `8080` | Bind port. |
-| `CODA_EXECUTOR_FACTORY` | `""` | Custom executor import path. When unset, the runtime auto-discovers factories from installed packages (see below). |
-| `CODA_DEVICE_CONFIG` | `""` | Path to YAML device config read by the executor factory. Defaults to `./site/device.yaml` if that file exists. |
+| `CODA_EXECUTOR_FACTORY` | `""` | Custom executor import path. Highest-priority source when set. |
+| `CODA_DEVICE_CONFIG` | `""` | Path to YAML device config read by the executor factory. Defaults to `./site/device.yaml` if that file exists. When `CODA_EXECUTOR_FACTORY` is unset, the runtime also checks this YAML for a top-level `executor_factory` key. |
 | `CODA_VPN_REQUIRED` | `true` | Whether VPN is mandatory. |
 | `CODA_ALLOW_DEGRADED_STARTUP` | `false` | Start despite VPN failure. |
 
@@ -87,10 +87,11 @@ config.
 
 ## Executor Auto-Discovery
 
-When `CODA_EXECUTOR_FACTORY` is not set, the runtime scans installed
-packages for the naming convention
-`<package>.executor_factory:create_executor`.  If exactly one match is
-found, it is used automatically.  If multiple matches are found, a
+When `CODA_EXECUTOR_FACTORY` is not set, the runtime first checks
+`CODA_DEVICE_CONFIG` for a top-level `executor_factory` key. If that is
+also absent, it scans installed packages for the naming convention
+`<package>.executor_factory:create_executor`. If exactly one match is
+found, it is used automatically. If multiple matches are found, a
 warning is logged and the runtime falls back to `NoopExecutor`.
 
 Set `CODA_EXECUTOR_FACTORY` explicitly to skip discovery and force a
