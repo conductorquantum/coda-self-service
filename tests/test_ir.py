@@ -21,9 +21,7 @@ from coda_node.server.ir import (
 
 
 def _metadata() -> IRMetadata:
-    return IRMetadata(
-        source_hash="sha256:test-ir", compiled_at="2026-03-26T00:00:00Z"
-    )
+    return IRMetadata(source_hash="sha256:test-ir", compiled_at="2026-03-26T00:00:00Z")
 
 
 # ===================================================================
