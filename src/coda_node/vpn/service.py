@@ -54,14 +54,12 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "OPENVPN_LOG_PATH",
     "OPENVPN_PID_PATH",
-    "NodeError",
     "apply_node_bundle",
     "connect_settings",
     "ensure_persisted_vpn",
     "fetch_node_bundle",
     "fetch_reconnect_bundle",
     "kill_openvpn_daemon",
-    "node_settings",
 ]
 
 _RUNTIME_DIR = Path(tempfile.gettempdir())
@@ -553,11 +551,6 @@ async def connect_settings(settings: Settings) -> None:
         if settings.node_token:
             kill_openvpn_daemon()
         raise
-
-
-async def node_settings(settings: Settings) -> None:
-    """Alias for :func:`connect_settings` (backward compatibility)."""
-    await connect_settings(settings)
 
 
 async def ensure_persisted_vpn(settings: Settings) -> None:

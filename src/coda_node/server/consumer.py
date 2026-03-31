@@ -9,7 +9,7 @@ Message lifecycle:
 
 1. ``XREADGROUP`` blocks for new messages on ``qpu:<qpu_id>:jobs``.
 2. Each message is deserialized into a :class:`NativeGateIR` and handed
-   to the    :class:`~coda_node.server.executor.JobExecutor`.
+   to the :class:`~coda_node.server.executor.JobExecutor`.
 3. The result (or error) is posted back via
    :class:`~coda_node.server.webhook.WebhookClient`.
 4. The message is ``XACK``-ed regardless of success or failure so it
@@ -88,6 +88,7 @@ class RedisConsumer:
         consumer_name: str = "worker-0",
         crash_recovery_threshold_ms: int = 60_000,
     ) -> None:
+        """Initialise the consumer with its Redis client, executor, and webhook."""
         self._redis = redis
         self._runner = runner
         self._webhook = webhook
@@ -279,12 +280,14 @@ class RedisConsumer:
             return False
 
     async def _has_cancel_signal(self, job_id: str) -> bool:
+        """Check whether the cloud has set a cancellation flag for *job_id*."""
         cancel_raw = await _await_if_needed(
             self._redis.get(f"qpu:job:cancelled:{job_id}")
         )
         return cancel_raw is not None
 
     async def _get_job_status(self, job_id: str) -> str | None:
+        """Return the current state string for *job_id*, or ``None``."""
         status_raw = await _await_if_needed(
             self._redis.hget(f"qpu:job:{job_id}:status", "state")
         )
@@ -297,6 +300,7 @@ class RedisConsumer:
         )
 
     async def _mark_job_cancelled(self, job_id: str, message_id: str) -> None:
+        """Write a ``cancelled`` status record for *job_id*."""
         await self._safe_hset(
             f"qpu:job:{job_id}:status",
             {
@@ -308,6 +312,7 @@ class RedisConsumer:
         )
 
     async def _request_runner_cancel(self, job_id: str) -> None:
+        """Invoke the executor's optional ``cancel_current_job`` hook."""
         cancel_current_job = getattr(self._runner, "cancel_current_job", None)
         if not callable(cancel_current_job):
             return
@@ -322,6 +327,13 @@ class RedisConsumer:
     async def _run_job_with_cancellation(
         self, job_id: str, ir: NativeGateIR, shots: int
     ) -> ExecutionResult:
+        """Execute a job while polling for cancellation signals.
+
+        Runs the executor in a task and periodically checks Redis for a
+        cancel flag.  If cancellation is detected mid-flight the executor's
+        ``cancel_current_job`` hook is called (when available), the task is
+        cancelled, and :class:`_JobCancelledWhileExecuting` is raised.
+        """
         run_task = asyncio.create_task(self._runner.run(ir, shots))
         try:
             while True:
@@ -452,6 +464,7 @@ class RedisConsumer:
             result: ExecutionResult,
             completed_at: str,
         ) -> None:
+            """Deliver one result from the batch, honouring late cancellation."""
             if await self._has_cancel_signal(job_id):
                 await self._mark_job_cancelled(job_id, message_id)
                 await self._safe_xack(message_id)
@@ -485,6 +498,7 @@ class RedisConsumer:
             await self._safe_xack(message_id)
 
         async def _deliver_batch_results() -> None:
+            """Fan out webhook delivery for all results in parallel."""
             now_iso = datetime.now(UTC).isoformat()
             try:
                 await asyncio.gather(

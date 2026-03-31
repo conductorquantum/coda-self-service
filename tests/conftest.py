@@ -2,22 +2,15 @@
 
 from __future__ import annotations
 
-import importlib
 import os
 import subprocess
-import sys
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src"
-if str(SRC) not in sys.path:
-    sys.path.insert(0, str(SRC))
-
-config_module = importlib.import_module("coda_node.server.config")
-daemon_module = importlib.import_module("coda_node.server.daemon")
+from coda_node.server import config as config_module
+from coda_node.server import daemon as daemon_module
 
 
 @pytest.fixture(autouse=True)

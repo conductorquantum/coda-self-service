@@ -19,7 +19,7 @@ def _make_consumer(**overrides: object) -> MagicMock:
 
 
 @patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
-def test_send_posts_authenticated_payload(_mock_sign: MagicMock) -> None:
+async def test_send_posts_authenticated_payload(_mock_sign: MagicMock) -> None:
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
     mock_http = AsyncMock()
@@ -35,7 +35,7 @@ def test_send_posts_authenticated_payload(_mock_sign: MagicMock) -> None:
     )
     client._client = mock_http
 
-    asyncio.run(client._send())
+    await client._send()
 
     call_args = mock_http.post.call_args
     assert call_args[0][0] == "https://example.com/api/internal/qpu/heartbeat"
@@ -47,7 +47,7 @@ def test_send_posts_authenticated_payload(_mock_sign: MagicMock) -> None:
 
 
 @patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
-def test_send_includes_idle_state(_mock_sign: MagicMock) -> None:
+async def test_send_includes_idle_state(_mock_sign: MagicMock) -> None:
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
     mock_http = AsyncMock()
@@ -67,7 +67,7 @@ def test_send_includes_idle_state(_mock_sign: MagicMock) -> None:
     )
     client._client = mock_http
 
-    asyncio.run(client._send())
+    await client._send()
 
     body = mock_http.post.call_args[1]["json"]
     assert body["current_job"] is None
@@ -76,7 +76,7 @@ def test_send_includes_idle_state(_mock_sign: MagicMock) -> None:
 
 
 @patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
-def test_send_includes_connectivity(_mock_sign: MagicMock) -> None:
+async def test_send_includes_connectivity(_mock_sign: MagicMock) -> None:
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
     mock_http = AsyncMock()
@@ -93,14 +93,14 @@ def test_send_includes_connectivity(_mock_sign: MagicMock) -> None:
     )
     client._client = mock_http
 
-    asyncio.run(client._send())
+    await client._send()
 
     body = mock_http.post.call_args[1]["json"]
     assert body["connectivity"] == [[0, 1], [1, 2]]
 
 
 @patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
-def test_send_includes_directed_connectivity(_mock_sign: MagicMock) -> None:
+async def test_send_includes_directed_connectivity(_mock_sign: MagicMock) -> None:
     """Directed edges preserve (control, target) orientation in the payload."""
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
@@ -118,14 +118,14 @@ def test_send_includes_directed_connectivity(_mock_sign: MagicMock) -> None:
     )
     client._client = mock_http
 
-    asyncio.run(client._send())
+    await client._send()
 
     body = mock_http.post.call_args[1]["json"]
     assert body["connectivity"] == [[1, 0], [2, 1]]
 
 
 @patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
-def test_send_connectivity_none_when_not_provided(_mock_sign: MagicMock) -> None:
+async def test_send_connectivity_none_when_not_provided(_mock_sign: MagicMock) -> None:
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
     mock_http = AsyncMock()
@@ -141,14 +141,14 @@ def test_send_connectivity_none_when_not_provided(_mock_sign: MagicMock) -> None
     )
     client._client = mock_http
 
-    asyncio.run(client._send())
+    await client._send()
 
     body = mock_http.post.call_args[1]["json"]
     assert body["connectivity"] is None
 
 
 @patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
-def test_run_loop_sends_and_stops(_mock_sign: MagicMock) -> None:
+async def test_run_loop_sends_and_stops(_mock_sign: MagicMock) -> None:
     """Verify the run loop sends at least one heartbeat then stops."""
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
@@ -167,21 +167,17 @@ def test_run_loop_sends_and_stops(_mock_sign: MagicMock) -> None:
     )
     client._client = mock_http
 
-    async def _run_briefly() -> int:
-        task = asyncio.create_task(client.run())
-        await asyncio.sleep(0.05)
-        client.stop()
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
-        return int(mock_http.post.call_count)
-
-    call_count = asyncio.run(_run_briefly())
-    assert call_count >= 1
+    task = asyncio.create_task(client.run())
+    await asyncio.sleep(0.05)
+    client.stop()
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+    assert mock_http.post.call_count >= 1
 
 
 @patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
-def test_send_failure_does_not_crash_loop(_mock_sign: MagicMock) -> None:
+async def test_send_failure_does_not_crash_loop(_mock_sign: MagicMock) -> None:
     """A failed heartbeat POST should be logged, not raised."""
     mock_http = AsyncMock()
     mock_http.post = AsyncMock(side_effect=Exception("network down"))
@@ -198,20 +194,17 @@ def test_send_failure_does_not_crash_loop(_mock_sign: MagicMock) -> None:
     )
     client._client = mock_http
 
-    async def _run_briefly() -> None:
-        task = asyncio.create_task(client.run())
-        await asyncio.sleep(0.05)
-        client.stop()
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
-
-    asyncio.run(_run_briefly())
+    task = asyncio.create_task(client.run())
+    await asyncio.sleep(0.05)
+    client.stop()
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
     assert mock_http.post.call_count >= 1
 
 
 @patch("coda_node.server.heartbeat.sign_token", return_value="mock-jwt")
-def test_send_includes_extra_headers(_mock_sign: MagicMock) -> None:
+async def test_send_includes_extra_headers(_mock_sign: MagicMock) -> None:
     mock_response = AsyncMock()
     mock_response.raise_for_status = lambda: None
     mock_http = AsyncMock()
@@ -228,7 +221,7 @@ def test_send_includes_extra_headers(_mock_sign: MagicMock) -> None:
     )
     client._client = mock_http
 
-    asyncio.run(client._send())
+    await client._send()
 
     headers = mock_http.post.call_args[1]["headers"]
     assert headers["Authorization"] == "Bearer mock-jwt"

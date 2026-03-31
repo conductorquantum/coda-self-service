@@ -295,6 +295,7 @@ class VPNGuard:
         vpn_required: bool = True,
         extra_headers: dict[str, str] | None = None,
     ) -> None:
+        """Initialise the guard with probe targets and monitoring settings."""
         self._probe_targets = probe_targets or []
         self._interface_hint = interface_hint
         self._check_interval = check_interval_sec

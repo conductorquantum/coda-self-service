@@ -55,12 +55,23 @@ __all__ = ["main"]
 _BANNER_WIDTH = 48
 
 
+_logging_configured = False
+
+
 def _configure_logging() -> None:
-    """Set up root logger with a human-readable format at INFO level."""
+    """Set up root logger with a human-readable format at INFO level.
+
+    Guarded so that repeated CLI entry (e.g. test harnesses calling
+    ``main()`` multiple times) does not add duplicate handlers.
+    """
+    global _logging_configured
+    if _logging_configured:
+        return
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    _logging_configured = True
 
 
 def _build_parser() -> argparse.ArgumentParser:

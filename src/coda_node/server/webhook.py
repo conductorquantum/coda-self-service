@@ -87,6 +87,7 @@ class WebhookClient:
         max_retries: int = _MAX_RETRIES,
         extra_headers: dict[str, str] | None = None,
     ) -> None:
+        """Initialise the webhook client with QPU identity and signing credentials."""
         self._qpu_id = qpu_id
         self._jwt_private_key = jwt_private_key
         self._jwt_key_id = jwt_key_id

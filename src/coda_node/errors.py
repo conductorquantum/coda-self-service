@@ -32,7 +32,7 @@ class VPNError(CodaError):
     """VPN tunnel or health check failure."""
 
 
-class NodeError(VPNError):
+class NodeError(CodaError):
     """Node provisioning or reconnect failure."""
 
 

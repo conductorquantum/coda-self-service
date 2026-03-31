@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
+from coda_node.errors import NodeError
 from coda_node.server.config import Settings
 from coda_node.vpn.service import (
-    NodeError,
     _post_connect,
     _start_openvpn,
     _validate_vpn_profile,
@@ -22,7 +22,6 @@ from coda_node.vpn.service import (
     fetch_node_bundle,
     fetch_reconnect_bundle,
     kill_openvpn_daemon,
-    node_settings,
 )
 
 
@@ -351,6 +350,63 @@ class TestStartOpenvpn:
 
         assert pid_path.read_text().strip() == "4321"
 
+    @patch("coda_node.vpn.service.os.name", "posix")
+    @patch("coda_node.vpn.service._openvpn_binary", return_value="/usr/sbin/openvpn")
+    @patch("coda_node.vpn.service.subprocess.run")
+    def test_posix_launch_calls_daemon_mode(
+        self,
+        mock_run: MagicMock,
+        _binary: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pid_path = tmp_path / "coda.pid"
+        log_path = tmp_path / "coda.log"
+        monkeypatch.setattr("coda_node.vpn.service.OPENVPN_PID_PATH", pid_path)
+        monkeypatch.setattr("coda_node.vpn.service.OPENVPN_LOG_PATH", log_path)
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+
+        _start_openvpn("/etc/openvpn/client.ovpn")
+
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "/usr/sbin/openvpn"
+        assert "--config" in cmd
+        assert "/etc/openvpn/client.ovpn" in cmd
+        assert "--daemon" in cmd
+        assert "--writepid" in cmd
+        assert str(pid_path) in cmd
+
+    @patch("coda_node.vpn.service.os.name", "posix")
+    @patch("coda_node.vpn.service._openvpn_binary", return_value="/usr/sbin/openvpn")
+    @patch("coda_node.vpn.service.subprocess.run")
+    def test_posix_launch_raises_on_nonzero_exit(
+        self,
+        mock_run: MagicMock,
+        _binary: MagicMock,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            "coda_node.vpn.service.OPENVPN_PID_PATH", tmp_path / "c.pid"
+        )
+        monkeypatch.setattr(
+            "coda_node.vpn.service.OPENVPN_LOG_PATH", tmp_path / "c.log"
+        )
+        mock_run.return_value = MagicMock(returncode=1, stderr="permission denied")
+
+        with pytest.raises(NodeError, match="Failed to start OpenVPN"):
+            _start_openvpn("/etc/openvpn/client.ovpn")
+
+    def test_raises_when_binary_not_found(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr("coda_node.vpn.service._openvpn_binary", lambda: None)
+
+        with pytest.raises(NodeError, match="openvpn binary not found"):
+            _start_openvpn("/etc/openvpn/client.ovpn")
+
 
 class TestKillOpenvpnDaemon:
     def test_returns_false_when_no_pid_file(
@@ -376,7 +432,7 @@ class TestKillOpenvpnDaemon:
         assert not pid_file.exists()
 
 
-class TestNodeSettings:
+class TestConnectSettings:
     @pytest.mark.asyncio
     async def test_cleanup_on_apply_failure(self) -> None:
         settings = Settings()
@@ -395,7 +451,7 @@ class TestNodeSettings:
             patch("coda_node.vpn.service.kill_openvpn_daemon") as mock_kill,
         ):
             with pytest.raises(NodeError, match="bad bundle"):
-                await node_settings(settings)
+                await connect_settings(settings)
             mock_kill.assert_called_once()
 
     @pytest.mark.asyncio
@@ -421,7 +477,7 @@ class TestNodeSettings:
             new_callable=AsyncMock,
             return_value=bundle,
         ):
-            await node_settings(settings)
+            await connect_settings(settings)
 
         assert key_path.read_text() == bundle["jwt_private_key"]
         persisted = json.loads(config_path.read_text())

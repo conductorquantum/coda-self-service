@@ -114,56 +114,52 @@ VALID_IR_JSON = (
 
 
 class TestConsumer:
-    def test_setup_creates_group(
+    async def test_setup_creates_group(
         self, consumer: RedisConsumer, mock_redis: MockRedis
     ) -> None:
-        asyncio.run(consumer.setup())
+        await consumer.setup()
         assert "qpu:test-node:workers" in mock_redis._groups_created
 
-    def test_processes_successful_job(
+    async def test_processes_successful_job(
         self,
         consumer: RedisConsumer,
         mock_redis: MockRedis,
         mock_runner: AsyncMock,
         mock_webhook: AsyncMock,
     ) -> None:
-        asyncio.run(
-            consumer._process_message(
-                "msg-1",
-                {
-                    "job_id": "job-1",
-                    "ir_json": VALID_IR_JSON,
-                    "shots": "1024",
-                    "callback_url": "https://example.com/callback",
-                },
-            )
+        await consumer._process_message(
+            "msg-1",
+            {
+                "job_id": "job-1",
+                "ir_json": VALID_IR_JSON,
+                "shots": "1024",
+                "callback_url": "https://example.com/callback",
+            },
         )
         mock_runner.run.assert_called_once()
         mock_webhook.send_result.assert_called_once()
         assert "msg-1" in mock_redis._acked
 
-    def test_skips_completed_job(
+    async def test_skips_completed_job(
         self,
         consumer: RedisConsumer,
         mock_redis: MockRedis,
         mock_runner: AsyncMock,
     ) -> None:
         mock_redis._hashes["qpu:job:job-1:status"] = {"state": "completed"}
-        asyncio.run(
-            consumer._process_message(
-                "msg-2",
-                {
-                    "job_id": "job-1",
-                    "ir_json": VALID_IR_JSON,
-                    "shots": "1024",
-                    "callback_url": "https://example.com/callback",
-                },
-            )
+        await consumer._process_message(
+            "msg-2",
+            {
+                "job_id": "job-1",
+                "ir_json": VALID_IR_JSON,
+                "shots": "1024",
+                "callback_url": "https://example.com/callback",
+            },
         )
         mock_runner.run.assert_not_called()
         assert "msg-2" in mock_redis._acked
 
-    def test_skips_cancelled_job_before_execution(
+    async def test_skips_cancelled_job_before_execution(
         self,
         consumer: RedisConsumer,
         mock_redis: MockRedis,
@@ -171,23 +167,21 @@ class TestConsumer:
         mock_webhook: AsyncMock,
     ) -> None:
         mock_redis._values["qpu:job:cancelled:job-1"] = "1"
-        asyncio.run(
-            consumer._process_message(
-                "msg-cancelled",
-                {
-                    "job_id": "job-1",
-                    "ir_json": VALID_IR_JSON,
-                    "shots": "1024",
-                    "callback_url": "https://example.com/callback",
-                },
-            )
+        await consumer._process_message(
+            "msg-cancelled",
+            {
+                "job_id": "job-1",
+                "ir_json": VALID_IR_JSON,
+                "shots": "1024",
+                "callback_url": "https://example.com/callback",
+            },
         )
         mock_runner.run.assert_not_called()
         mock_webhook.send_result.assert_not_called()
         assert "msg-cancelled" in mock_redis._acked
         assert mock_redis._hashes["qpu:job:job-1:status"]["state"] == "cancelled"
 
-    def test_cancels_job_during_execution_and_skips_webhook(
+    async def test_cancels_job_during_execution_and_skips_webhook(
         self,
         consumer: RedisConsumer,
         mock_redis: MockRedis,
@@ -210,23 +204,20 @@ class TestConsumer:
         consumer._runner = runner  # type: ignore[assignment]
         monkeypatch.setattr(consumer_module, "_CANCEL_POLL_INTERVAL_SECS", 0.01)
 
-        async def scenario() -> None:
-            task = asyncio.create_task(
-                consumer._process_message(
-                    "msg-inflight-cancel",
-                    {
-                        "job_id": "job-4",
-                        "ir_json": VALID_IR_JSON,
-                        "shots": "1024",
-                        "callback_url": "https://example.com/callback",
-                    },
-                )
+        task = asyncio.create_task(
+            consumer._process_message(
+                "msg-inflight-cancel",
+                {
+                    "job_id": "job-4",
+                    "ir_json": VALID_IR_JSON,
+                    "shots": "1024",
+                    "callback_url": "https://example.com/callback",
+                },
             )
-            await runner.started.wait()
-            mock_redis._values["qpu:job:cancelled:job-4"] = "1"
-            await task
-
-        asyncio.run(scenario())
+        )
+        await runner.started.wait()
+        mock_redis._values["qpu:job:cancelled:job-4"] = "1"
+        await task
 
         assert runner.cancel_calls == 1
         mock_webhook.send_result.assert_not_called()
@@ -235,7 +226,7 @@ class TestConsumer:
         assert mock_redis._hashes["qpu:job:job-4:status"]["state"] == "cancelled"
         assert consumer.current_job_id is None
 
-    def test_failed_job_sends_error(
+    async def test_failed_job_sends_error(
         self,
         consumer: RedisConsumer,
         mock_redis: MockRedis,
@@ -243,42 +234,38 @@ class TestConsumer:
         mock_webhook: AsyncMock,
     ) -> None:
         mock_runner.run.side_effect = RuntimeError("backend timeout")
-        asyncio.run(
-            consumer._process_message(
-                "msg-3",
-                {
-                    "job_id": "job-2",
-                    "ir_json": VALID_IR_JSON,
-                    "shots": "1024",
-                    "callback_url": "https://example.com/callback",
-                },
-            )
+        await consumer._process_message(
+            "msg-3",
+            {
+                "job_id": "job-2",
+                "ir_json": VALID_IR_JSON,
+                "shots": "1024",
+                "callback_url": "https://example.com/callback",
+            },
         )
         mock_webhook.send_error.assert_called_once()
         assert mock_redis._hashes["qpu:job:job-2:status"]["state"] == "failed"
 
-    def test_idle_event_set_after_job(
+    async def test_idle_event_set_after_job(
         self,
         consumer: RedisConsumer,
         mock_redis: MockRedis,
         mock_runner: AsyncMock,
     ) -> None:
         assert consumer._idle_event.is_set()
-        asyncio.run(
-            consumer._process_message(
-                "msg-4",
-                {
-                    "job_id": "job-3",
-                    "ir_json": VALID_IR_JSON,
-                    "shots": "1024",
-                    "callback_url": "https://example.com/callback",
-                },
-            )
+        await consumer._process_message(
+            "msg-4",
+            {
+                "job_id": "job-3",
+                "ir_json": VALID_IR_JSON,
+                "shots": "1024",
+                "callback_url": "https://example.com/callback",
+            },
         )
         assert consumer._idle_event.is_set()
         assert consumer.current_job_id is None
 
-    def test_processes_job_with_byte_keys(
+    async def test_processes_job_with_byte_keys(
         self,
         consumer: RedisConsumer,
         mock_redis: MockRedis,
@@ -286,33 +273,29 @@ class TestConsumer:
         mock_webhook: AsyncMock,
     ) -> None:
         """Byte-keyed messages (from non-decode_responses clients) are handled."""
-        asyncio.run(
-            consumer._process_message(
-                "msg-bytes",
-                {
-                    b"job_id": b"job-bytes",
-                    b"ir_json": VALID_IR_JSON.encode(),
-                    b"shots": b"1024",
-                    b"callback_url": b"https://example.com/callback",
-                },
-            )
+        await consumer._process_message(
+            "msg-bytes",
+            {
+                b"job_id": b"job-bytes",
+                b"ir_json": VALID_IR_JSON.encode(),
+                b"shots": b"1024",
+                b"callback_url": b"https://example.com/callback",
+            },
         )
         mock_runner.run.assert_called_once()
         mock_webhook.send_result.assert_called_once()
         assert "msg-bytes" in mock_redis._acked
 
-    def test_malformed_message_acked_and_skipped(
+    async def test_malformed_message_acked_and_skipped(
         self,
         consumer: RedisConsumer,
         mock_redis: MockRedis,
         mock_runner: AsyncMock,
     ) -> None:
         """Messages missing required fields are ACK-ed and skipped."""
-        asyncio.run(
-            consumer._process_message(
-                "msg-bad",
-                {"ir_json": VALID_IR_JSON, "shots": "1024"},
-            )
+        await consumer._process_message(
+            "msg-bad",
+            {"ir_json": VALID_IR_JSON, "shots": "1024"},
         )
         mock_runner.run.assert_not_called()
         assert "msg-bad" in mock_redis._acked
@@ -352,7 +335,7 @@ class TestBatchConsumer:
 
         assert consumer._can_batch is False
 
-    def test_processes_batch_and_sends_webhooks(
+    async def test_processes_batch_and_sends_webhooks(
         self,
         mock_redis: MockRedis,
         mock_runner: AsyncMock,
@@ -379,33 +362,30 @@ class TestBatchConsumer:
             qpu_id="test-node",
         )
 
-        async def scenario() -> None:
-            task = await consumer._process_batch(
-                [
-                    (
-                        "msg-1",
-                        {
-                            "job_id": "job-1",
-                            "ir_json": VALID_IR_JSON,
-                            "shots": "1024",
-                            "callback_url": "https://example.com/callback-1",
-                        },
-                    ),
-                    (
-                        "msg-2",
-                        {
-                            "job_id": "job-2",
-                            "ir_json": VALID_IR_JSON,
-                            "shots": "512",
-                            "callback_url": "https://example.com/callback-2",
-                        },
-                    ),
-                ]
-            )
-            assert task is not None
-            await task
-
-        asyncio.run(scenario())
+        task = await consumer._process_batch(
+            [
+                (
+                    "msg-1",
+                    {
+                        "job_id": "job-1",
+                        "ir_json": VALID_IR_JSON,
+                        "shots": "1024",
+                        "callback_url": "https://example.com/callback-1",
+                    },
+                ),
+                (
+                    "msg-2",
+                    {
+                        "job_id": "job-2",
+                        "ir_json": VALID_IR_JSON,
+                        "shots": "512",
+                        "callback_url": "https://example.com/callback-2",
+                    },
+                ),
+            ]
+        )
+        assert task is not None
+        await task
 
         mock_runner.batch_run.assert_awaited_once()
         mock_runner.run.assert_not_called()
@@ -414,7 +394,7 @@ class TestBatchConsumer:
         assert mock_redis._hashes["qpu:job:job-2:status"]["state"] == "completed"
         assert sorted(mock_redis._acked) == ["msg-1", "msg-2"]
 
-    def test_batch_falls_back_to_single_job_processing_on_batch_error(
+    async def test_batch_falls_back_to_single_job_processing_on_batch_error(
         self,
         mock_redis: MockRedis,
         mock_runner: AsyncMock,
@@ -428,39 +408,36 @@ class TestBatchConsumer:
             qpu_id="test-node",
         )
 
-        async def scenario() -> None:
-            task = await consumer._process_batch(
-                [
-                    (
-                        "msg-1",
-                        {
-                            "job_id": "job-1",
-                            "ir_json": VALID_IR_JSON,
-                            "shots": "1024",
-                            "callback_url": "https://example.com/callback-1",
-                        },
-                    ),
-                    (
-                        "msg-2",
-                        {
-                            "job_id": "job-2",
-                            "ir_json": VALID_IR_JSON,
-                            "shots": "1024",
-                            "callback_url": "https://example.com/callback-2",
-                        },
-                    ),
-                ]
-            )
-            assert task is None
-
-        asyncio.run(scenario())
+        task = await consumer._process_batch(
+            [
+                (
+                    "msg-1",
+                    {
+                        "job_id": "job-1",
+                        "ir_json": VALID_IR_JSON,
+                        "shots": "1024",
+                        "callback_url": "https://example.com/callback-1",
+                    },
+                ),
+                (
+                    "msg-2",
+                    {
+                        "job_id": "job-2",
+                        "ir_json": VALID_IR_JSON,
+                        "shots": "1024",
+                        "callback_url": "https://example.com/callback-2",
+                    },
+                ),
+            ]
+        )
+        assert task is None
 
         mock_runner.batch_run.assert_awaited_once()
         assert mock_runner.run.await_count == 2
         assert mock_webhook.send_result.await_count == 2
         assert sorted(mock_redis._acked) == ["msg-1", "msg-2"]
 
-    def test_batch_skips_cancelled_job_before_execution(
+    async def test_batch_skips_cancelled_job_before_execution(
         self,
         mock_redis: MockRedis,
         mock_runner: AsyncMock,
@@ -483,33 +460,30 @@ class TestBatchConsumer:
             qpu_id="test-node",
         )
 
-        async def scenario() -> None:
-            task = await consumer._process_batch(
-                [
-                    (
-                        "msg-1",
-                        {
-                            "job_id": "job-1",
-                            "ir_json": VALID_IR_JSON,
-                            "shots": "1024",
-                            "callback_url": "https://example.com/callback-1",
-                        },
-                    ),
-                    (
-                        "msg-2",
-                        {
-                            "job_id": "job-2",
-                            "ir_json": VALID_IR_JSON,
-                            "shots": "1024",
-                            "callback_url": "https://example.com/callback-2",
-                        },
-                    ),
-                ]
-            )
-            assert task is not None
-            await task
-
-        asyncio.run(scenario())
+        task = await consumer._process_batch(
+            [
+                (
+                    "msg-1",
+                    {
+                        "job_id": "job-1",
+                        "ir_json": VALID_IR_JSON,
+                        "shots": "1024",
+                        "callback_url": "https://example.com/callback-1",
+                    },
+                ),
+                (
+                    "msg-2",
+                    {
+                        "job_id": "job-2",
+                        "ir_json": VALID_IR_JSON,
+                        "shots": "1024",
+                        "callback_url": "https://example.com/callback-2",
+                    },
+                ),
+            ]
+        )
+        assert task is not None
+        await task
 
         mock_runner.batch_run.assert_awaited_once()
         batch_jobs = mock_runner.batch_run.await_args.args[0]
@@ -544,7 +518,7 @@ class _MockRedisWithPending(MockRedis):
 
 
 class TestRecoverPending:
-    def test_recovers_all_pending_regardless_of_idle_time(
+    async def test_recovers_all_pending_regardless_of_idle_time(
         self,
         mock_runner: AsyncMock,
         mock_webhook: AsyncMock,
@@ -565,26 +539,26 @@ class TestRecoverPending:
             qpu_id="test-node",
             crash_recovery_threshold_ms=60_000,
         )
-        recovered = asyncio.run(consumer.recover_pending())
+        recovered = await consumer.recover_pending()
         assert recovered == 1
         mock_runner.run.assert_called_once()
         assert "msg-pending" in redis._acked
 
 
 class TestDrain:
-    def test_drain_returns_true_when_idle(
+    async def test_drain_returns_true_when_idle(
         self,
         consumer: RedisConsumer,
     ) -> None:
-        result = asyncio.run(consumer.drain(timeout=0.1))
+        result = await consumer.drain(timeout=0.1)
         assert result is True
         assert consumer._running is False
 
-    def test_drain_returns_false_on_timeout(
+    async def test_drain_returns_false_on_timeout(
         self,
         consumer: RedisConsumer,
     ) -> None:
         consumer._idle_event.clear()
-        result = asyncio.run(consumer.drain(timeout=0.05))
+        result = await consumer.drain(timeout=0.05)
         assert result is False
         assert consumer._running is False

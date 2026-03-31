@@ -70,6 +70,7 @@ def create_app(executor: JobExecutor | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        """Boot services on startup and tear them down on shutdown."""
         settings = Settings()
         await connect_settings(settings)
 

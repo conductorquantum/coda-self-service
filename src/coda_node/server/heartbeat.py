@@ -61,6 +61,7 @@ class HeartbeatClient:
         connectivity: list[list[int]] | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> None:
+        """Initialise the heartbeat client with endpoint, credentials, and consumer."""
         self._url = heartbeat_url
         self._qpu_id = qpu_id
         self._jwt_private_key = jwt_private_key

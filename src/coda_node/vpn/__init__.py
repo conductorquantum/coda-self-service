@@ -23,20 +23,17 @@ from coda_node.vpn.guard import (
 from coda_node.vpn.service import (
     OPENVPN_LOG_PATH,
     OPENVPN_PID_PATH,
-    NodeError,
     apply_node_bundle,
     connect_settings,
     ensure_persisted_vpn,
     fetch_node_bundle,
     fetch_reconnect_bundle,
     kill_openvpn_daemon,
-    node_settings,
 )
 
 __all__ = [
     "OPENVPN_LOG_PATH",
     "OPENVPN_PID_PATH",
-    "NodeError",
     "ProbeResult",
     "ServiceState",
     "VPNGuard",
@@ -48,6 +45,5 @@ __all__ = [
     "fetch_node_bundle",
     "fetch_reconnect_bundle",
     "kill_openvpn_daemon",
-    "node_settings",
     "validate_key_permissions",
 ]
