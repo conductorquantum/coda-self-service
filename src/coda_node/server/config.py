@@ -202,6 +202,7 @@ class Settings(BaseSettings):
     executor_factory: str = ""
     device_config: str = ""
     advertised_provider: str = "coda"
+    consumer_batch_size: int = 1
 
     @model_validator(mode="before")
     @classmethod

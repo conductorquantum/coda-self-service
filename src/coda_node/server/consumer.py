@@ -62,6 +62,10 @@ async def _await_if_needed(value: T | Awaitable[T]) -> T:
 class RedisConsumer:
     """Consume jobs from a Coda Redis stream and dispatch to an executor.
 
+    When *batch_size* > 1 and the executor supports ``batch_run``, the
+    consumer reads up to *batch_size* messages per iteration and
+    dispatches them as a single batch for compilation and execution.
+
     Args:
         redis: An async Redis client instance.
         runner: The execution backend that processes each job.
@@ -72,6 +76,8 @@ class RedisConsumer:
         crash_recovery_threshold_ms: Minimum idle time (in ms) before a
             pending message is considered abandoned and eligible for
             reprocessing.
+        batch_size: Maximum number of jobs to read and execute per
+            iteration.  Requires the executor to implement ``batch_run``.
     """
 
     def __init__(
@@ -82,6 +88,7 @@ class RedisConsumer:
         qpu_id: str,
         consumer_name: str = "worker-0",
         crash_recovery_threshold_ms: int = 60_000,
+        batch_size: int = 1,
     ) -> None:
         self._redis = redis
         self._runner = runner
@@ -89,14 +96,24 @@ class RedisConsumer:
         self._qpu_id = qpu_id
         self._consumer_name = consumer_name
         self._crash_recovery_threshold_ms = crash_recovery_threshold_ms
+        self._batch_size = batch_size
+        self._can_batch = batch_size > 1 and hasattr(runner, "batch_run")
         self._stream = f"qpu:{qpu_id}:jobs"
         self._group = f"qpu:{qpu_id}:workers"
         self._running = False
         self._idle_event = asyncio.Event()
         self._idle_event.set()
+        self._pending_batch_delivery: asyncio.Task[None] | None = None
         self.current_job_id: str | None = None
         self.last_job_at: str | None = None
         self.redis_healthy = True
+
+        if batch_size > 1 and not self._can_batch:
+            logger.warning(
+                "batch_size=%d but executor does not support batch_run; "
+                "falling back to single-job processing",
+                batch_size,
+            )
 
     @staticmethod
     def _decode_fields(fields: Mapping[object, object]) -> dict[str, str]:
@@ -161,16 +178,19 @@ class RedisConsumer:
     async def consume_loop(self) -> None:
         """Run the main consume loop until :meth:`stop` is called.
 
-        On each iteration the loop blocks (up to 5 s) for a new message
-        via ``XREADGROUP``.  Connection errors trigger exponential
-        backoff (1 s → 60 s max); unexpected errors trigger a 1 s
-        backoff.  The loop sets :attr:`redis_healthy` to reflect the
-        current connection state.
+        On each iteration the loop blocks (up to 5 s) for new messages
+        via ``XREADGROUP``.  When batching is enabled, reads up to
+        ``batch_size`` messages and dispatches them together.
+
+        Connection errors trigger exponential backoff (1 s -> 60 s max);
+        unexpected errors trigger a 1 s backoff.  The loop sets
+        :attr:`redis_healthy` to reflect the current connection state.
         """
         self._running = True
         await self.setup()
         await self.recover_pending()
 
+        read_count = self._batch_size if self._can_batch else 1
         consecutive_failures = 0
         last_pending_check = time.monotonic()
         while self._running:
@@ -179,11 +199,15 @@ class RedisConsumer:
                     groupname=self._group,
                     consumername=self._consumer_name,
                     streams={self._stream: ">"},
-                    count=1,
+                    count=read_count,
                     block=5000,
                 )
                 self.redis_healthy = True
                 consecutive_failures = 0
+
+                if self._pending_batch_delivery is not None:
+                    await self._pending_batch_delivery
+                    self._pending_batch_delivery = None
 
                 if not messages:
                     now = time.monotonic()
@@ -193,8 +217,13 @@ class RedisConsumer:
                     continue
 
                 for _stream_name, stream_messages in messages:
-                    for message_id, fields in stream_messages:
-                        await self._process_message(message_id, fields)
+                    if self._can_batch and len(stream_messages) > 1:
+                        delivery = await self._process_batch(stream_messages)
+                        if delivery is not None:
+                            self._pending_batch_delivery = delivery
+                    else:
+                        for message_id, fields in stream_messages:
+                            await self._process_message(message_id, fields)
             except (ConnectionError, OSError, aioredis.ConnectionError):
                 self.redis_healthy = False
                 consecutive_failures += 1
@@ -229,6 +258,9 @@ class RedisConsumer:
         self.stop()
         try:
             await asyncio.wait_for(self._idle_event.wait(), timeout=timeout)
+            if self._pending_batch_delivery is not None:
+                await asyncio.wait_for(self._pending_batch_delivery, timeout=timeout)
+                self._pending_batch_delivery = None
             return True
         except TimeoutError:
             return False
@@ -317,6 +349,115 @@ class RedisConsumer:
         finally:
             if not run_task.done():
                 run_task.cancel()
+
+    async def _process_batch(
+        self, stream_messages: list[tuple[str, Mapping[object, object]]]
+    ) -> asyncio.Task[None] | None:
+        """Translate, execute, and report a batch of jobs.
+
+        On success, returns a background task that delivers webhooks and
+        ``XACK``s (parallelized). The caller should await that task before
+        starting the next hardware batch.
+
+        On any batch-level failure, falls back to processing each
+        message individually and returns ``None``.
+        """
+        parsed: list[tuple[str, str, str, NativeGateIR, int]] = []
+        for message_id, fields in stream_messages:
+            decoded = self._decode_fields(fields)
+            try:
+                job_id = decoded["job_id"]
+                callback_url = decoded["callback_url"]
+                ir = NativeGateIR.from_json(decoded["ir_json"])
+                shots = int(decoded["shots"])
+            except Exception as exc:
+                logger.warning(
+                    "Skipping malformed message %s in batch: %s", message_id, exc
+                )
+                await self._safe_xack(message_id)
+                continue
+            parsed.append((message_id, job_id, callback_url, ir, shots))
+
+        if not parsed:
+            return None
+
+        self._idle_event.clear()
+        n = len(parsed)
+        logger.info("Executing batch of %d jobs", n)
+
+        jobs = [(ir, shots) for _, _, _, ir, shots in parsed]
+        for _, job_id, _, _, _ in parsed:
+            await self._safe_hset(
+                f"qpu:job:{job_id}:status",
+                {
+                    "state": "executing",
+                    "started_at": datetime.now(UTC).isoformat(),
+                    "qpu_id": self._qpu_id,
+                },
+            )
+
+        try:
+            results = await self._runner.batch_run(jobs)
+        except Exception as exc:
+            logger.error(
+                "Batch execution failed (%d jobs): %s — falling back to "
+                "single-job processing",
+                n,
+                exc,
+                exc_info=True,
+            )
+            for message_id, fields in stream_messages:
+                await self._process_message(message_id, fields)
+            return None
+
+        async def _deliver_batch_results() -> None:
+            now_iso = datetime.now(UTC).isoformat()
+            try:
+                await asyncio.gather(
+                    *(
+                        self._safe_hset(
+                            f"qpu:job:{job_id}:status",
+                            {"state": "completed", "completed_at": now_iso},
+                        )
+                        for _, job_id, _, _, _ in parsed
+                    ),
+                )
+                payloads = [
+                    (
+                        callback_url,
+                        WebhookPayload(
+                            job_id=job_id,
+                            status="completed",
+                            counts=result.counts,
+                            execution_time_ms=result.execution_time_ms,
+                            shots_completed=result.shots_completed,
+                        ),
+                    )
+                    for (_, job_id, callback_url, _, _), result in zip(parsed, results)
+                ]
+                send_out = await asyncio.gather(
+                    *(
+                        self._webhook.send_result(callback_url, payload)
+                        for callback_url, payload in payloads
+                    ),
+                    return_exceptions=True,
+                )
+                for (_, payload), out in zip(payloads, send_out):
+                    if isinstance(out, Exception):
+                        logger.error(
+                            "Failed to send webhook for job %s in batch",
+                            payload.job_id,
+                            exc_info=out,
+                        )
+                await asyncio.gather(
+                    *(self._safe_xack(message_id) for message_id, *_ in parsed),
+                )
+                self.last_job_at = now_iso
+                logger.info("Batch of %d jobs completed", n)
+            finally:
+                self._idle_event.set()
+
+        return asyncio.create_task(_deliver_batch_results())
 
     async def _process_message(
         self, message_id: str, fields: Mapping[object, object]
