@@ -49,7 +49,7 @@ First run (node provisioning, VPN mode):
 
   Operator                  Node Runtime                  Coda Cloud
      │                           │                            │
-     │── coda start --token ──►  │                            │
+     │── coda-node start --token ──►  │                            │
      │                           │── POST /connect ──────────►│
      │                           │   Authorization: Bearer <token>
      │                           │   { machine_fingerprint }  │
@@ -70,7 +70,7 @@ First run (node provisioning, HTTPS mode):
 
   Operator                  Node Runtime                  Coda Cloud
      │                           │                            │
-     │── coda start --token ──►  │                            │
+     │── coda-node start --token ──►  │                            │
      │                           │── POST /connect ──────────►│
      │                           │   Authorization: Bearer <token>
      │                           │   { machine_fingerprint }  │

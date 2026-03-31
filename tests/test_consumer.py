@@ -318,6 +318,195 @@ class TestConsumer:
         assert "msg-bad" in mock_redis._acked
 
 
+class TestBatchConsumer:
+    def test_can_batch_when_executor_supports_batch_run(
+        self,
+        mock_redis: MockRedis,
+        mock_runner: AsyncMock,
+        mock_webhook: AsyncMock,
+    ) -> None:
+        mock_runner.batch_run = AsyncMock(return_value=[])
+
+        consumer = RedisConsumer(
+            redis=cast(aioredis.Redis, mock_redis),
+            runner=mock_runner,
+            webhook=mock_webhook,
+            qpu_id="test-node",
+            batch_size=2,
+        )
+
+        assert consumer._can_batch is True
+
+    def test_processes_batch_and_sends_webhooks(
+        self,
+        mock_redis: MockRedis,
+        mock_runner: AsyncMock,
+        mock_webhook: AsyncMock,
+    ) -> None:
+        mock_runner.batch_run = AsyncMock(
+            return_value=[
+                ExecutionResult(
+                    counts={"00": 1024},
+                    execution_time_ms=150.0,
+                    shots_completed=1024,
+                ),
+                ExecutionResult(
+                    counts={"11": 512},
+                    execution_time_ms=160.0,
+                    shots_completed=512,
+                ),
+            ]
+        )
+        consumer = RedisConsumer(
+            redis=cast(aioredis.Redis, mock_redis),
+            runner=mock_runner,
+            webhook=mock_webhook,
+            qpu_id="test-node",
+            batch_size=2,
+        )
+
+        async def scenario() -> None:
+            task = await consumer._process_batch(
+                [
+                    (
+                        "msg-1",
+                        {
+                            "job_id": "job-1",
+                            "ir_json": VALID_IR_JSON,
+                            "shots": "1024",
+                            "callback_url": "https://example.com/callback-1",
+                        },
+                    ),
+                    (
+                        "msg-2",
+                        {
+                            "job_id": "job-2",
+                            "ir_json": VALID_IR_JSON,
+                            "shots": "512",
+                            "callback_url": "https://example.com/callback-2",
+                        },
+                    ),
+                ]
+            )
+            assert task is not None
+            await task
+
+        asyncio.run(scenario())
+
+        mock_runner.batch_run.assert_awaited_once()
+        mock_runner.run.assert_not_called()
+        assert mock_webhook.send_result.await_count == 2
+        assert mock_redis._hashes["qpu:job:job-1:status"]["state"] == "completed"
+        assert mock_redis._hashes["qpu:job:job-2:status"]["state"] == "completed"
+        assert sorted(mock_redis._acked) == ["msg-1", "msg-2"]
+
+    def test_batch_falls_back_to_single_job_processing_on_batch_error(
+        self,
+        mock_redis: MockRedis,
+        mock_runner: AsyncMock,
+        mock_webhook: AsyncMock,
+    ) -> None:
+        mock_runner.batch_run = AsyncMock(side_effect=RuntimeError("batch failed"))
+        consumer = RedisConsumer(
+            redis=cast(aioredis.Redis, mock_redis),
+            runner=mock_runner,
+            webhook=mock_webhook,
+            qpu_id="test-node",
+            batch_size=2,
+        )
+
+        async def scenario() -> None:
+            task = await consumer._process_batch(
+                [
+                    (
+                        "msg-1",
+                        {
+                            "job_id": "job-1",
+                            "ir_json": VALID_IR_JSON,
+                            "shots": "1024",
+                            "callback_url": "https://example.com/callback-1",
+                        },
+                    ),
+                    (
+                        "msg-2",
+                        {
+                            "job_id": "job-2",
+                            "ir_json": VALID_IR_JSON,
+                            "shots": "1024",
+                            "callback_url": "https://example.com/callback-2",
+                        },
+                    ),
+                ]
+            )
+            assert task is None
+
+        asyncio.run(scenario())
+
+        mock_runner.batch_run.assert_awaited_once()
+        assert mock_runner.run.await_count == 2
+        assert mock_webhook.send_result.await_count == 2
+        assert sorted(mock_redis._acked) == ["msg-1", "msg-2"]
+
+    def test_batch_skips_cancelled_job_before_execution(
+        self,
+        mock_redis: MockRedis,
+        mock_runner: AsyncMock,
+        mock_webhook: AsyncMock,
+    ) -> None:
+        mock_runner.batch_run = AsyncMock(
+            return_value=[
+                ExecutionResult(
+                    counts={"00": 1024},
+                    execution_time_ms=150.0,
+                    shots_completed=1024,
+                )
+            ]
+        )
+        mock_redis._values["qpu:job:cancelled:job-2"] = "1"
+        consumer = RedisConsumer(
+            redis=cast(aioredis.Redis, mock_redis),
+            runner=mock_runner,
+            webhook=mock_webhook,
+            qpu_id="test-node",
+            batch_size=2,
+        )
+
+        async def scenario() -> None:
+            task = await consumer._process_batch(
+                [
+                    (
+                        "msg-1",
+                        {
+                            "job_id": "job-1",
+                            "ir_json": VALID_IR_JSON,
+                            "shots": "1024",
+                            "callback_url": "https://example.com/callback-1",
+                        },
+                    ),
+                    (
+                        "msg-2",
+                        {
+                            "job_id": "job-2",
+                            "ir_json": VALID_IR_JSON,
+                            "shots": "1024",
+                            "callback_url": "https://example.com/callback-2",
+                        },
+                    ),
+                ]
+            )
+            assert task is not None
+            await task
+
+        asyncio.run(scenario())
+
+        mock_runner.batch_run.assert_awaited_once()
+        batch_jobs = mock_runner.batch_run.await_args.args[0]
+        assert len(batch_jobs) == 1
+        assert mock_webhook.send_result.await_count == 1
+        assert mock_redis._hashes["qpu:job:job-2:status"]["state"] == "cancelled"
+        assert sorted(mock_redis._acked) == ["msg-1", "msg-2"]
+
+
 class _MockRedisWithPending(MockRedis):
     """MockRedis that returns a single recently-stuck pending message."""
 

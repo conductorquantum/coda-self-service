@@ -41,13 +41,13 @@ Each backend defines its own YAML schema and Pydantic model.
 
 ```bash
 CODA_DEVICE_CONFIG=./site/device.yaml \
-uv run coda start --token <your-token>
+uv run coda-node start --token <your-token>
 ```
 
 Or, if `./site/device.yaml` exists, simply:
 
 ```bash
-uv run coda start --token <your-token>
+uv run coda-node start --token <your-token>
 ```
 
 To keep the executor choice with the device config instead of the shell

@@ -14,6 +14,7 @@ Coda.
 - Verifies and continuously monitors VPN connectivity
 - Sends periodic heartbeats to keep QPU status "online"
 - Consumes jobs from Redis Streams with crash recovery
+- Optionally batches Redis jobs when the executor implements `batch_run`
 - Sends JWT-signed webhook results to Coda with retry
 - Drains in-flight work on graceful shutdown
 - Supports pluggable execution backends via factory convention
@@ -35,7 +36,7 @@ Requires Python 3.11+.  Two equivalent CLI entry points are installed:
 Provision with a node token:
 
 ```bash
-uv run coda start --token <node-token>
+uv run coda-node start --token <node-token>
 ```
 
 Or set the token as an environment variable:
@@ -59,8 +60,8 @@ On startup the runtime:
 3. Brings up or validates VPN connectivity when required.
 4. Starts the FastAPI service, a background Redis Streams consumer, and
    a heartbeat loop that periodically POSTs node status to the cloud.
-5. Dispatches jobs to the configured executor and posts signed results
-   back via webhook.
+5. Dispatches jobs to the configured executor, optionally in batches,
+   and posts signed results back via webhook.
 
 On shutdown the runtime drains the in-flight job (up to
 `CODA_SHUTDOWN_DRAIN_TIMEOUT_SEC`), cancels background tasks, closes
@@ -95,6 +96,7 @@ previously persisted config from disk.
 | `CODA_PORT` | `8080` | Bind port for the FastAPI server. |
 | `CODA_EXECUTOR_FACTORY` | `""` | Import path for a custom executor (see below). Highest priority when set. |
 | `CODA_DEVICE_CONFIG` | `""` | Path to a YAML device config read by the executor factory. Defaults to `./site/device.yaml` if that file exists. The runtime also looks for an optional top-level `executor_factory` key in this file when `CODA_EXECUTOR_FACTORY` is unset. |
+| `CODA_CONSUMER_BATCH_SIZE` | `1` | Max jobs to read and dispatch together when the executor implements `batch_run()`. Values greater than `1` fall back to single-job mode if batch support is unavailable. |
 
 Provide either `CODA_NODE_TOKEN` for auto-provisioning, or both
 `CODA_JWT_PRIVATE_KEY` and `CODA_JWT_KEY_ID` for direct JWT startup.

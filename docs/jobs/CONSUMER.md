@@ -9,6 +9,11 @@ dispatch, continues polling it while the executor is running, and marks
 the Redis job state as `cancelled` instead of emitting a terminal
 webhook.
 
+When `batch_size > 1` and the executor implements `batch_run()`, the
+consumer reads up to that many new jobs per poll and executes them as a
+single hardware batch. If the executor does not expose `batch_run()`,
+the consumer logs a warning and stays in single-job mode.
+
 ## Consumer Group Setup
 
 On startup, `setup()` creates the consumer group if it doesn't exist:
@@ -51,10 +56,15 @@ messages = await self._redis.xreadgroup(
     groupname=self._group,
     consumername=self._consumer_name,
     streams={self._stream: ">"},
-    count=1,
+    count=self._batch_size if self._can_batch else 1,
     block=5000,
 )
 ```
+
+When batching is enabled, the loop also waits for the previous batch's
+background webhook/XACK delivery task before dispatching the next
+hardware batch. This preserves in-order result delivery without holding
+up the webhook fan-out itself.
 
 ### Redis Resilience
 
@@ -113,6 +123,24 @@ prevent webhook delivery.
    (truncated to 500 chars), sends error webhook.
 7. **Finally** — ACKs the message and clears `current_job_id`.
 
+## Batch Processing
+
+`_process_batch()` is used only when both conditions are true:
+
+- `batch_size > 1`
+- The executor exposes `batch_run(jobs)`
+
+The batch path:
+
+1. Decodes each message and skips malformed, completed, or already-cancelled jobs.
+2. Marks the remaining jobs as `executing`.
+3. Calls `executor.batch_run([(ir, shots), ...])`.
+4. On batch-level failure, falls back to `_process_message()` for each message.
+5. On success, fans out completion status updates, webhooks, and ACKs in a background task.
+
+Each `batch_run()` result must correspond to the input jobs in order and
+return one `ExecutionResult` per job.
+
 ## Graceful Drain
 
 `drain(timeout)` allows in-flight work to complete before shutdown:
@@ -120,7 +148,8 @@ prevent webhook delivery.
 1. Calls `stop()` to signal the loop to exit.
 2. Waits up to `timeout` seconds for the `_idle_event` to be set
    (indicating no job is in progress).
-3. Returns `True` if drained cleanly, `False` if the timeout expired.
+3. Waits for any pending batch webhook/XACK delivery task to finish.
+4. Returns `True` if drained cleanly, `False` if the timeout expired.
 
 The idle event is cleared when a job starts processing and set when
 processing finishes (in the `finally` block).
@@ -135,6 +164,7 @@ RedisConsumer(
     qpu_id="my-qpu",
     consumer_name="worker-0",           # default
     crash_recovery_threshold_ms=60_000,  # default
+    batch_size=1,                        # default
 )
 ```
 

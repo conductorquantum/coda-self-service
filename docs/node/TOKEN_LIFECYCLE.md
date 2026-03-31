@@ -74,7 +74,7 @@ enrolled.
 
 The node receives the node token via:
 
-- CLI flag: `coda start --token <token>`
+- CLI flag: `coda-node start --token <token>`
 - Environment variable: `CODA_NODE_TOKEN`
 
 When `Settings.node_token` is non-empty, the node calls

@@ -65,6 +65,7 @@ Complete field reference for the `Settings` class in
 | `executor_factory` | `str` | `""` | `CODA_EXECUTOR_FACTORY` | Import path for a custom executor factory (`module:attr` format). When unset, the runtime falls back to the device config's top-level `executor_factory` key before auto-discovery. See [Executor Factory Convention](../frameworks/FRAMEWORK_PROTOCOL.md). |
 | `device_config` | `str` | `""` | `CODA_DEVICE_CONFIG` | Path to a YAML device configuration file, read by the executor factory. Defaults to `./site/device.yaml` if that file exists. The runtime also reads an optional top-level `executor_factory` key from this file when the env var is unset. See [Device Configuration](../frameworks/DEVICE_CONFIG.md). |
 | `advertised_provider` | `str` | `"coda"` | `CODA_ADVERTISED_PROVIDER` | Legacy local metadata field. Not used by the node connect handshake. |
+| `consumer_batch_size` | `int` | `1` | `CODA_CONSUMER_BATCH_SIZE` | Max jobs to read from Redis and dispatch together when the executor implements `batch_run()`. Values greater than `1` fall back to single-job processing if batch support is unavailable. See [Redis Consumer](../jobs/CONSUMER.md). |
 
 ## Heartbeat
 

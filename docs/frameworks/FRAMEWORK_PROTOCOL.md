@@ -100,7 +100,7 @@ port: 9090
 If `my_backend` is the only backend package installed:
 
 ```bash
-uv run coda start --token <token>
+uv run coda-node start --token <token>
 ```
 
 The runtime auto-discovers `my_backend.executor_factory:create_executor`
@@ -112,7 +112,7 @@ To be explicit:
 ```bash
 CODA_EXECUTOR_FACTORY=my_backend.executor_factory:create_executor \
 CODA_DEVICE_CONFIG=./site/device.yaml \
-uv run coda start --token <token>
+uv run coda-node start --token <token>
 ```
 
 ## Key Points

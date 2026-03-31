@@ -97,7 +97,8 @@ class RedisConsumer:
         self._consumer_name = consumer_name
         self._crash_recovery_threshold_ms = crash_recovery_threshold_ms
         self._batch_size = batch_size
-        self._can_batch = batch_size > 1 and hasattr(runner, "batch_run")
+        batch_run = getattr(runner, "batch_run", None)
+        self._can_batch = batch_size > 1 and callable(batch_run)
         self._stream = f"qpu:{qpu_id}:jobs"
         self._group = f"qpu:{qpu_id}:workers"
         self._running = False
@@ -292,6 +293,18 @@ class RedisConsumer:
         )
         return cancel_raw is not None
 
+    async def _get_job_status(self, job_id: str) -> str | None:
+        status_raw = await _await_if_needed(
+            self._redis.hget(f"qpu:job:{job_id}:status", "state")
+        )
+        return (
+            status_raw.decode()
+            if isinstance(status_raw, bytes)
+            else str(status_raw)
+            if status_raw is not None
+            else None
+        )
+
     async def _mark_job_cancelled(self, job_id: str, message_id: str) -> None:
         await self._safe_hset(
             f"qpu:job:{job_id}:status",
@@ -368,6 +381,27 @@ class RedisConsumer:
             try:
                 job_id = decoded["job_id"]
                 callback_url = decoded["callback_url"]
+            except KeyError as exc:
+                logger.error(
+                    "Malformed stream message %s (missing %s), skipping. Keys: %s",
+                    message_id,
+                    exc,
+                    sorted(decoded.keys()),
+                )
+                await self._safe_xack(message_id)
+                continue
+
+            status = await self._get_job_status(job_id)
+            if status in {"completed", "cancelled"}:
+                await self._safe_xack(message_id)
+                continue
+
+            if await self._has_cancel_signal(job_id):
+                await self._mark_job_cancelled(job_id, message_id)
+                await self._safe_xack(message_id)
+                continue
+
+            try:
                 ir = NativeGateIR.from_json(decoded["ir_json"])
                 shots = int(decoded["shots"])
             except Exception as exc:
@@ -396,8 +430,18 @@ class RedisConsumer:
                 },
             )
 
+        batch_run = getattr(self._runner, "batch_run", None)
+        if not callable(batch_run):
+            logger.error(
+                "Executor does not support batch_run at dispatch time; "
+                "falling back to single-job processing"
+            )
+            for message_id, fields in stream_messages:
+                await self._process_message(message_id, fields)
+            return None
+
         try:
-            results = await self._runner.batch_run(jobs)
+            results = await batch_run(jobs)
         except Exception as exc:
             logger.error(
                 "Batch execution failed (%d jobs): %s — falling back to "
@@ -410,47 +454,61 @@ class RedisConsumer:
                 await self._process_message(message_id, fields)
             return None
 
+        async def _deliver_single_batch_result(
+            message_id: str,
+            job_id: str,
+            callback_url: str,
+            result: ExecutionResult,
+            completed_at: str,
+        ) -> None:
+            if await self._has_cancel_signal(job_id):
+                await self._mark_job_cancelled(job_id, message_id)
+                await self._safe_xack(message_id)
+                return
+
+            await self._safe_hset(
+                f"qpu:job:{job_id}:status",
+                {"state": "completed", "completed_at": completed_at},
+            )
+
+            if await self._has_cancel_signal(job_id):
+                await self._mark_job_cancelled(job_id, message_id)
+                await self._safe_xack(message_id)
+                return
+
+            payload = WebhookPayload(
+                job_id=job_id,
+                status="completed",
+                counts=result.counts,
+                execution_time_ms=result.execution_time_ms,
+                shots_completed=result.shots_completed,
+            )
+            try:
+                await self._webhook.send_result(callback_url, payload)
+            except Exception:
+                logger.error(
+                    "Failed to send webhook for job %s in batch",
+                    job_id,
+                    exc_info=True,
+                )
+            await self._safe_xack(message_id)
+
         async def _deliver_batch_results() -> None:
             now_iso = datetime.now(UTC).isoformat()
             try:
                 await asyncio.gather(
                     *(
-                        self._safe_hset(
-                            f"qpu:job:{job_id}:status",
-                            {"state": "completed", "completed_at": now_iso},
+                        _deliver_single_batch_result(
+                            message_id,
+                            job_id,
+                            callback_url,
+                            result,
+                            now_iso,
                         )
-                        for _, job_id, _, _, _ in parsed
-                    ),
-                )
-                payloads = [
-                    (
-                        callback_url,
-                        WebhookPayload(
-                            job_id=job_id,
-                            status="completed",
-                            counts=result.counts,
-                            execution_time_ms=result.execution_time_ms,
-                            shots_completed=result.shots_completed,
-                        ),
-                    )
-                    for (_, job_id, callback_url, _, _), result in zip(parsed, results)
-                ]
-                send_out = await asyncio.gather(
-                    *(
-                        self._webhook.send_result(callback_url, payload)
-                        for callback_url, payload in payloads
-                    ),
-                    return_exceptions=True,
-                )
-                for (_, payload), out in zip(payloads, send_out):
-                    if isinstance(out, Exception):
-                        logger.error(
-                            "Failed to send webhook for job %s in batch",
-                            payload.job_id,
-                            exc_info=out,
+                        for (message_id, job_id, callback_url, _, _), result in zip(
+                            parsed, results, strict=True
                         )
-                await asyncio.gather(
-                    *(self._safe_xack(message_id) for message_id, *_ in parsed),
+                    ),
                 )
                 self.last_job_at = now_iso
                 logger.info("Batch of %d jobs completed", n)
@@ -484,16 +542,7 @@ class RedisConsumer:
             await self._safe_xack(message_id)
             return
 
-        status_raw = await _await_if_needed(
-            self._redis.hget(f"qpu:job:{job_id}:status", "state")
-        )
-        status = (
-            status_raw.decode()
-            if isinstance(status_raw, bytes)
-            else str(status_raw)
-            if status_raw is not None
-            else None
-        )
+        status = await self._get_job_status(job_id)
         if status in {"completed", "cancelled"}:
             await self._safe_xack(message_id)
             return

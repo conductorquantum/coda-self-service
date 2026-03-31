@@ -2,7 +2,8 @@
 
 The `JobExecutor` protocol defines the interface that all execution
 backends must implement. The consumer is backend-agnostic for normal
-execution -- it always calls `executor.run(ir, shots)`.
+execution -- it always calls `executor.run(ir, shots)` and can
+optionally use `executor.batch_run(jobs)` when batch mode is enabled.
 
 ## JobExecutor Protocol
 
@@ -29,6 +30,24 @@ If present, `RedisConsumer` calls this hook when the cloud writes
 `qpu:job:cancelled:{job_id}` for an already-running job. This hook is
 best-effort: it lets an executor stop hardware work or set an internal
 cancel flag before the consumer cancels the in-process `run()` task.
+
+### Optional Batch Hook
+
+Executors can also optionally expose `batch_run()`:
+
+```python
+class MyExecutor:
+    async def batch_run(
+        self, jobs: list[tuple[NativeGateIR, int]]
+    ) -> list[ExecutionResult]:
+        ...
+```
+
+When `CODA_CONSUMER_BATCH_SIZE` is greater than `1`, `RedisConsumer`
+uses this hook to dispatch multiple jobs in one loop iteration. The
+method must return one `ExecutionResult` per input job, in the same
+order. If `batch_run()` is absent, the consumer logs a warning and
+falls back to single-job processing.
 
 ### ExecutionResult
 

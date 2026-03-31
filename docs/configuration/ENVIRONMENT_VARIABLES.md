@@ -21,6 +21,7 @@ including type coercion for booleans, integers, and lists.
 | `CODA_PORT` | `8080` | Bind port. |
 | `CODA_EXECUTOR_FACTORY` | `""` | Custom executor import path. Highest-priority source when set. |
 | `CODA_DEVICE_CONFIG` | `""` | Path to YAML device config read by the executor factory. Defaults to `./site/device.yaml` if that file exists. When `CODA_EXECUTOR_FACTORY` is unset, the runtime also checks this YAML for a top-level `executor_factory` key. |
+| `CODA_CONSUMER_BATCH_SIZE` | `1` | Max jobs to read and dispatch together when the executor implements `batch_run()`. Values greater than `1` fall back to single-job mode if batch support is unavailable. |
 | `CODA_VPN_REQUIRED` | `true` | Whether VPN is mandatory. |
 | `CODA_ALLOW_DEGRADED_STARTUP` | `false` | Start despite VPN failure. |
 

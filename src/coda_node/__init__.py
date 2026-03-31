@@ -8,7 +8,7 @@ webhook delivery so that backend authors only need to implement the
 
 Typical usage::
 
-    uv run coda start --token <node-token>
+    uv run coda-node start --token <node-token>
 """
 
 from coda_node.errors import CodaError
