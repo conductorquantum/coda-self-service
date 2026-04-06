@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 0.2.0)"
+        required: true
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate semver format
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Version '${{ inputs.version }}' is not valid semver (expected x.y.z)"
+            exit 1
+          fi
+
+      - name: Check tag does not already exist
+        run: |
+          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "::error::Tag v${{ inputs.version }} already exists"
+            exit 1
+          fi
+
+      - name: Check CHANGELOG has entry for version
+        run: |
+          if ! grep -qE "^## \[${{ inputs.version }}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no entry for version ${{ inputs.version }}"
+            exit 1
+          fi
+
+  ci:
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version in pyproject.toml
+        run: sed -i 's/^version = ".*"/version = "${{ inputs.version }}"/' pyproject.toml
+
+      - name: Bump version in __init__.py
+        run: sed -i 's/^__version__ = ".*"/__version__ = "${{ inputs.version }}"/' src/coda_node/__init__.py
+
+      - name: Commit and tag
+        run: |
+          git add pyproject.toml src/coda_node/__init__.py
+          git commit -m "release: v${{ inputs.version }}"
+          git tag "v${{ inputs.version }}"
+          git push origin main --tags
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        run: |
+          notes=$(awk '/^## \[${{ inputs.version }}\]/{found=1; next} found && /^## \[/{exit} found' CHANGELOG.md)
+          {
+            echo "body<<EOF"
+            echo "$notes"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ inputs.version }}" \
+            --title "v${{ inputs.version }}" \
+            --notes "${{ steps.notes.outputs.body }}"
