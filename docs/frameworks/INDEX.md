@@ -45,6 +45,19 @@ exposes: <pkg>.executor_factory:create_executor
 4. **`NoopExecutor`** fallback -- deterministic all-zeros results for
    testing without hardware.
 
+## Supported Backends
+
+### QubiC
+
+[QubiC](https://lbl-qubic.gitlab.io/) is an open-source qubit control system
+developed by Lawrence Berkeley National Laboratory for superconducting quantum
+processors. It provides a scalable, FPGA-based control stack with integrated
+pulse generation, readout, and calibration capabilities.
+
+For more details, see the [QubiC paper](https://arxiv.org/abs/2101.00071) and the
+[QubiC example integration](https://docs.conductorquantum.com/coda/node/qubi-c-example)
+in the Conductor documentation.
+
 ## Cross-References
 
 - [Executor backends](../jobs/EXECUTOR.md) -- `JobExecutor` protocol
